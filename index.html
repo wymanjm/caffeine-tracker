@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Caffeine" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <title>Caffeine Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --card: #0f3460;
+      --accent: #e94560;
+      --accent2: #f5a623;
+      --text: #eaeaea;
+      --muted: #8892a4;
+      --safe: #4caf50;
+      --warn: #ff9800;
+      --danger: #f44336;
+      --radius: 16px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bottom);
+    }
+
+    header {
+      background: var(--surface);
+      padding: 16px 20px 12px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    header span {
+      color: var(--accent);
+    }
+
+    .date-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Daily Summary */
+    .summary-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+    }
+
+    .total-mg {
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--text);
+      transition: color 0.3s;
+    }
+
+    .total-mg.warn { color: var(--warn); }
+    .total-mg.danger { color: var(--danger); }
+
+    .total-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .limit-bar-wrap {
+      margin-top: 14px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .limit-bar {
+      height: 100%;
+      border-radius: 99px;
+      background: var(--safe);
+      transition: width 0.5s, background 0.3s;
+    }
+
+    .limit-bar.warn { background: var(--warn); }
+    .limit-bar.danger { background: var(--danger); }
+
+    .limit-text {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* Quick-add buttons */
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 2px;
+    }
+
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .quick-btn {
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: var(--radius);
+      padding: 14px 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .quick-btn:active { transform: scale(0.97); background: var(--card); }
+
+    .quick-btn .item-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .quick-btn .item-mg {
+      font-size: 0.78rem;
+      color: var(--accent);
+      margin-top: 2px;
+    }
+
+    .quick-btn .item-emoji {
+      font-size: 1.4rem;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    /* Custom add */
+    .custom-form {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .custom-form input {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 11px 14px;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      min-width: 0;
+    }
+
+    .custom-form input::placeholder { color: var(--muted); }
+    .custom-form input:focus { border-color: var(--accent); }
+
+    .add-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .add-btn:active { opacity: 0.8; }
+
+    /* Log */
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .log-item {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .log-time {
+      font-size: 0.75rem;
+      color: var(--muted);
+      min-width: 42px;
+    }
+
+    .log-name {
+      flex: 1;
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+
+    .log-mg {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .log-del {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      line-height: 1;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .log-del:active { background: rgba(233,69,96,0.15); color: var(--accent); }
+
+    .empty-log {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 20px 0;
+    }
+
+    /* Settings row */
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+
+    .settings-row label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      flex: 1;
+    }
+
+    .settings-row input[type=number] {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      font-size: 0.9rem;
+      width: 80px;
+      text-align: right;
+      outline: none;
+    }
+
+    .settings-row input[type=number]:focus { border-color: var(--accent); }
+
+    /* Install banner */
+    #install-banner {
+      display: none;
+      background: var(--card);
+      border-top: 2px solid var(--accent);
+      padding: 14px 16px;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    #install-banner.show { display: flex; }
+
+    .install-text {
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+
+    .install-text strong { color: var(--accent2); }
+
+    .install-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .install-btn {
+      flex: 1;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .dismiss-btn {
+      background: rgba(255,255,255,0.08);
+      color: var(--muted);
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* iOS install hint */
+    #ios-hint {
+      display: none;
+      background: var(--card);
+      border-top: 2px solid var(--accent2);
+      padding: 14px 16px;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    #ios-hint.show { display: flex; }
+
+    .ios-hint-text {
+      font-size: 0.82rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .ios-close {
+      align-self: flex-end;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+
+    @media (min-width: 480px) {
+      .quick-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>☕ Caffeine <span>Tracker</span></h1>
+  <div class="date-label" id="date-label"></div>
+</header>
+
+<main>
+  <!-- Summary -->
+  <div class="summary-card">
+    <div class="total-mg" id="total-mg">0</div>
+    <div class="total-label">mg caffeine today</div>
+    <div class="limit-bar-wrap">
+      <div class="limit-bar" id="limit-bar" style="width:0%"></div>
+    </div>
+    <div class="limit-text" id="limit-text">0 / 400 mg daily limit</div>
+  </div>
+
+  <!-- Quick Add -->
+  <div>
+    <div class="section-title">Quick Add</div>
+    <div class="quick-grid" id="quick-grid"></div>
+  </div>
+
+  <!-- Custom Add -->
+  <div>
+    <div class="section-title">Custom Entry</div>
+    <div class="custom-form">
+      <div class="form-row">
+        <input type="text" id="custom-name" placeholder="Drink name" autocomplete="off" />
+        <input type="number" id="custom-mg" placeholder="mg" min="0" max="2000" />
+      </div>
+      <button class="add-btn" onclick="addCustom()">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Today's Log -->
+  <div>
+    <div class="section-title">Today's Log</div>
+    <div class="log-list" id="log-list">
+      <div class="empty-log">No entries yet</div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div>
+    <div class="section-title">Settings</div>
+    <div class="settings-row">
+      <label for="limit-input">Daily limit (mg)</label>
+      <input type="number" id="limit-input" value="400" min="50" max="2000" onchange="saveLimit()" />
+    </div>
+  </div>
+</main>
+
+<!-- Android/Chrome install banner -->
+<div id="install-banner">
+  <div class="install-text"><strong>Install as App</strong> — works offline, no browser UI</div>
+  <div class="install-actions">
+    <button class="install-btn" id="install-btn">Install</button>
+    <button class="dismiss-btn" onclick="dismissInstall()">Later</button>
+  </div>
+</div>
+
+<!-- iOS install hint -->
+<div id="ios-hint">
+  <button class="ios-close" onclick="dismissIos()">✕</button>
+  <div class="ios-hint-text">
+    To install on iPhone/iPad:<br>
+    Tap <strong>Share ⬆</strong> → <strong>Add to Home Screen</strong>
+  </div>
+</div>
+
+<script>
+  const PRESETS = [
+    { name: 'Espresso',      emoji: '☕', mg: 63  },
+    { name: 'Coffee (8oz)',  emoji: '☕', mg: 95  },
+    { name: 'Red Bull',      emoji: '🐂', mg: 80  },
+    { name: 'Monster',       emoji: '🟢', mg: 160 },
+    { name: 'Green Tea',     emoji: '🍵', mg: 28  },
+    { name: 'Diet Coke',     emoji: '🥤', mg: 46  },
+    { name: 'Cold Brew',     emoji: '🧊', mg: 200 },
+    { name: 'Matcha Latte',  emoji: '🍵', mg: 70  },
+  ];
+
+  let entries = [];
+  let limit = 400;
+
+  function storageKey() {
+    return 'caffeine-' + new Date().toLocaleDateString('en-CA');
+  }
+
+  function load() {
+    const raw = localStorage.getItem(storageKey());
+    entries = raw ? JSON.parse(raw) : [];
+    limit = parseInt(localStorage.getItem('caffeine-limit') || '400', 10);
+    document.getElementById('limit-input').value = limit;
+  }
+
+  function save() {
+    localStorage.setItem(storageKey(), JSON.stringify(entries));
+  }
+
+  function saveLimit() {
+    limit = parseInt(document.getElementById('limit-input').value, 10) || 400;
+    localStorage.setItem('caffeine-limit', limit);
+    render();
+  }
+
+  function addEntry(name, mg) {
+    const now = new Date();
+    entries.push({
+      id: Date.now(),
+      name,
+      mg: parseInt(mg, 10),
+      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+    save();
+    render();
+  }
+
+  function deleteEntry(id) {
+    entries = entries.filter(e => e.id !== id);
+    save();
+    render();
+  }
+
+  function addCustom() {
+    const name = document.getElementById('custom-name').value.trim() || 'Custom';
+    const mg = parseInt(document.getElementById('custom-mg').value, 10);
+    if (!mg || mg <= 0) { document.getElementById('custom-mg').focus(); return; }
+    addEntry(name, mg);
+    document.getElementById('custom-name').value = '';
+    document.getElementById('custom-mg').value = '';
+  }
+
+  function render() {
+    const total = entries.reduce((s, e) => s + e.mg, 0);
+    const pct = Math.min(100, (total / limit) * 100);
+
+    const totalEl = document.getElementById('total-mg');
+    const barEl = document.getElementById('limit-bar');
+    const limitTextEl = document.getElementById('limit-text');
+
+    totalEl.textContent = total;
+    totalEl.className = 'total-mg' + (pct >= 100 ? ' danger' : pct >= 75 ? ' warn' : '');
+    barEl.style.width = pct + '%';
+    barEl.className = 'limit-bar' + (pct >= 100 ? ' danger' : pct >= 75 ? ' warn' : '');
+    limitTextEl.textContent = total + ' / ' + limit + ' mg daily limit';
+
+    const logList = document.getElementById('log-list');
+    if (entries.length === 0) {
+      logList.innerHTML = '<div class="empty-log">No entries yet — add your first drink!</div>';
+    } else {
+      logList.innerHTML = [...entries].reverse().map(e => `
+        <div class="log-item">
+          <div class="log-time">${e.time}</div>
+          <div class="log-name">${e.name}</div>
+          <div class="log-mg">${e.mg}mg</div>
+          <button class="log-del" onclick="deleteEntry(${e.id})" aria-label="Delete">✕</button>
+        </div>
+      `).join('');
+    }
+  }
+
+  function buildQuickGrid() {
+    const grid = document.getElementById('quick-grid');
+    grid.innerHTML = PRESETS.map(p => `
+      <button class="quick-btn" onclick="addEntry('${p.name}', ${p.mg})">
+        <span class="item-emoji">${p.emoji}</span>
+        <div class="item-name">${p.name}</div>
+        <div class="item-mg">${p.mg} mg</div>
+      </button>
+    `).join('');
+  }
+
+  // Date label
+  document.getElementById('date-label').textContent =
+    new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+  // Custom enter key
+  document.getElementById('custom-mg').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addCustom();
+  });
+
+  // PWA install prompt (Android/Chrome)
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!localStorage.getItem('install-dismissed')) {
+      document.getElementById('install-banner').classList.add('show');
+    }
+  });
+
+  document.getElementById('install-btn').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('install-banner').classList.remove('show');
+  });
+
+  function dismissInstall() {
+    localStorage.setItem('install-dismissed', '1');
+    document.getElementById('install-banner').classList.remove('show');
+  }
+
+  // iOS hint
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  if (isIos && !isStandalone && !localStorage.getItem('ios-hint-dismissed')) {
+    document.getElementById('ios-hint').classList.add('show');
+  }
+
+  function dismissIos() {
+    localStorage.setItem('ios-hint-dismissed', '1');
+    document.getElementById('ios-hint').classList.remove('show');
+  }
+
+  // Service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+
+  // Init
+  load();
+  buildQuickGrid();
+  render();
+</script>
+</body>
+</html>
