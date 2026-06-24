@@ -386,6 +386,57 @@
     @media (min-width: 480px) {
       .quick-grid { grid-template-columns: repeat(3, 1fr); }
     }
+
+    /* Cutoff warning */
+    .cutoff-banner {
+      display: none;
+      background: rgba(255,152,0,0.12);
+      border: 1px solid rgba(255,152,0,0.35);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 0.83rem;
+      color: var(--warn);
+      line-height: 1.5;
+    }
+    .cutoff-banner.show { display: block; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: calc(var(--safe-bottom) + 24px);
+      left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: rgba(255,152,0,0.95);
+      color: #1a1a2e;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 10px 20px;
+      border-radius: 99px;
+      opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Late badge in log */
+    .log-late {
+      font-size: 0.65rem;
+      background: rgba(255,152,0,0.18);
+      color: var(--warn);
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* Time input */
+    .custom-form input[type=time] {
+      flex: 0 0 auto;
+      width: auto;
+      color-scheme: dark;
+    }
   </style>
 </head>
 <body>
@@ -406,6 +457,11 @@
     <div class="limit-text" id="limit-text">0 / 400 mg daily limit</div>
   </div>
 
+  <!-- Cutoff warning -->
+  <div class="cutoff-banner" id="cutoff-banner">
+    ⚠️ <strong>Past your 1 PM cutoff.</strong> Caffeine now can disrupt your sleep. Consider skipping or switching to decaf.
+  </div>
+
   <!-- Quick Add -->
   <div>
     <div class="section-title">Quick Add</div>
@@ -420,7 +476,10 @@
         <input type="text" id="custom-name" placeholder="Drink name" autocomplete="off" />
         <input type="number" id="custom-mg" placeholder="mg" min="0" max="2000" />
       </div>
-      <button class="add-btn" onclick="addCustom()">+ Add</button>
+      <div class="form-row">
+        <input type="time" id="custom-time" />
+        <button class="add-btn" onclick="addCustom()">+ Add</button>
+      </div>
     </div>
   </div>
 
@@ -450,6 +509,8 @@
     <button class="dismiss-btn" onclick="dismissInstall()">Later</button>
   </div>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <!-- iOS install hint -->
 <div id="ios-hint">
@@ -496,14 +557,38 @@
     render();
   }
 
-  function addEntry(name, mg) {
+  const CUTOFF_HOUR = 13; // 1 PM
+
+  function nowHHMM() {
     const now = new Date();
-    entries.push({
-      id: Date.now(),
-      name,
-      mg: parseInt(mg, 10),
-      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    });
+    return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  }
+
+  function parseHour(timeStr) {
+    return timeStr ? parseInt(timeStr.split(':')[0], 10) : new Date().getHours();
+  }
+
+  function isLate(hour) { return hour >= CUTOFF_HOUR; }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  function checkCutoff() {
+    const late = isLate(new Date().getHours());
+    document.getElementById('cutoff-banner').classList.toggle('show', late);
+  }
+
+  function addEntry(name, mg, timeStr) {
+    const hour = parseHour(timeStr);
+    const d = new Date();
+    if (timeStr) d.setHours(hour, parseInt(timeStr.split(':')[1], 10), 0);
+    const displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    entries.push({ id: Date.now(), name, mg: parseInt(mg, 10), time: displayTime, hour });
     save();
     render();
   }
@@ -518,9 +603,17 @@
     const name = document.getElementById('custom-name').value.trim() || 'Custom';
     const mg = parseInt(document.getElementById('custom-mg').value, 10);
     if (!mg || mg <= 0) { document.getElementById('custom-mg').focus(); return; }
-    addEntry(name, mg);
+    const timeStr = document.getElementById('custom-time').value || nowHHMM();
+    if (isLate(parseHour(timeStr))) showToast('⚠️ Logged after your 1 PM cutoff');
+    addEntry(name, mg, timeStr);
     document.getElementById('custom-name').value = '';
     document.getElementById('custom-mg').value = '';
+    document.getElementById('custom-time').value = nowHHMM();
+  }
+
+  function quickAdd(name, mg) {
+    if (isLate(new Date().getHours())) showToast('⚠️ After your 1 PM cutoff!');
+    addEntry(name, mg, null);
   }
 
   function render() {
@@ -545,6 +638,7 @@
         <div class="log-item">
           <div class="log-time">${e.time}</div>
           <div class="log-name">${e.name}</div>
+          ${(e.hour != null && e.hour >= CUTOFF_HOUR) ? '<span class="log-late">late</span>' : ''}
           <div class="log-mg">${e.mg}mg</div>
           <button class="log-del" onclick="deleteEntry(${e.id})" aria-label="Delete">✕</button>
         </div>
@@ -555,7 +649,7 @@
   function buildQuickGrid() {
     const grid = document.getElementById('quick-grid');
     grid.innerHTML = PRESETS.map(p => `
-      <button class="quick-btn" onclick="addEntry('${p.name}', ${p.mg})">
+      <button class="quick-btn" onclick="quickAdd('${p.name}', ${p.mg})">
         <span class="item-emoji">${p.emoji}</span>
         <div class="item-name">${p.name}</div>
         <div class="item-mg">${p.mg} mg</div>
@@ -566,6 +660,9 @@
   // Date label
   document.getElementById('date-label').textContent =
     new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+  // Pre-fill time input with current time
+  document.getElementById('custom-time').value = nowHHMM();
 
   // Custom enter key
   document.getElementById('custom-mg').addEventListener('keydown', e => {
@@ -616,6 +713,9 @@
   load();
   buildQuickGrid();
   render();
+  checkCutoff();
+  // Re-check cutoff every minute in case the app is open across 1 PM
+  setInterval(checkCutoff, 60000);
 </script>
 </body>
 </html>
