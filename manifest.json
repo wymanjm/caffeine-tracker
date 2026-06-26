@@ -1,7 +1,7 @@
 {
-  "name": "Caffeine Tracker",
-  "short_name": "Caffeine",
-  "description": "Track your daily caffeine intake",
+  "name": "Life Points",
+  "short_name": "Life Pts",
+  "description": "Track caffeine, meditation, and workouts daily",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a2e",

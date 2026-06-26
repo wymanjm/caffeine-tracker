@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#1a1a2e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Caffeine" />
+  <meta name="apple-mobile-web-app-title" content="Life Points" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-  <title>Caffeine Tracker</title>
+  <title>Life Points</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -40,377 +40,324 @@
     body {
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
+      min-height: 100%;
       padding-top: var(--safe-top);
-      padding-bottom: var(--safe-bottom);
     }
 
     header {
       background: var(--surface);
-      padding: 16px 20px 12px;
+      padding: 13px 20px 9px;
       text-align: center;
       border-bottom: 1px solid rgba(255,255,255,0.06);
       flex-shrink: 0;
     }
 
-    header h1 {
-      font-size: 1.2rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+    header h1 span { color: var(--accent); }
+    .date-label { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+
+    main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+    .tab-content { display: none; flex-direction: column; gap: 13px; padding: 13px; }
+    .tab-content.active { display: flex; }
+
+    /* Bottom tab bar */
+    .tab-bar {
+      display: flex;
+      background: var(--surface);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-bottom: var(--safe-bottom);
+      flex-shrink: 0;
     }
 
-    header span {
-      color: var(--accent);
-    }
-
-    .date-label {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-
-    main {
+    .tab-btn {
       flex: 1;
-      overflow-y: auto;
-      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-    }
-
-    /* Daily Summary */
-    .summary-card {
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 20px;
-      text-align: center;
-    }
-
-    .total-mg {
-      font-size: 3.5rem;
-      font-weight: 800;
-      line-height: 1;
-      color: var(--text);
-      transition: color 0.3s;
-    }
-
-    .total-mg.warn { color: var(--warn); }
-    .total-mg.danger { color: var(--danger); }
-
-    .total-label {
-      font-size: 0.8rem;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 0 5px;
+      background: none;
+      border: none;
       color: var(--muted);
-      margin-top: 4px;
+      font-size: 0.6rem;
+      font-weight: 500;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s;
     }
 
-    .limit-bar-wrap {
-      margin-top: 14px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 99px;
-      height: 8px;
-      overflow: hidden;
-    }
+    .tab-btn .tab-icon { font-size: 1.2rem; line-height: 1; }
+    .tab-btn.active { color: var(--accent); }
 
-    .limit-bar {
-      height: 100%;
-      border-radius: 99px;
-      background: var(--safe);
-      transition: width 0.5s, background 0.3s;
-    }
-
-    .limit-bar.warn { background: var(--warn); }
-    .limit-bar.danger { background: var(--danger); }
-
-    .limit-text {
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-top: 6px;
-    }
-
-    /* Quick-add buttons */
+    /* Shared components */
     .section-title {
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       font-weight: 600;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      margin-bottom: 2px;
     }
 
-    .quick-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-
-    .quick-btn {
-      background: var(--surface);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: var(--radius);
-      padding: 14px 12px;
-      cursor: pointer;
-      text-align: left;
-      transition: background 0.15s, transform 0.1s;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .quick-btn:active { transform: scale(0.97); background: var(--card); }
-
-    .quick-btn .item-name {
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .quick-btn .item-mg {
-      font-size: 0.78rem;
-      color: var(--accent);
-      margin-top: 2px;
-    }
-
-    .quick-btn .item-emoji {
-      font-size: 1.4rem;
-      margin-bottom: 6px;
-      display: block;
-    }
-
-    /* Custom add */
-    .custom-form {
+    .card {
       background: var(--surface);
       border-radius: var(--radius);
       padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
     }
 
-    .form-row {
+    .log-list { display: flex; flex-direction: column; gap: 7px; }
+
+    .log-item {
+      background: var(--surface);
+      border-radius: 11px;
+      padding: 10px 12px;
       display: flex;
-      gap: 10px;
+      align-items: center;
+      gap: 9px;
     }
 
-    .custom-form input {
+    .log-time { font-size: 0.7rem; color: var(--muted); min-width: 40px; }
+    .log-name { flex: 1; font-size: 0.83rem; font-weight: 500; }
+
+    .log-del {
+      background: none; border: none; color: var(--muted);
+      font-size: 1rem; cursor: pointer; padding: 4px 6px;
+      border-radius: 6px; line-height: 1;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .log-del:active { background: rgba(233,69,96,0.15); color: var(--accent); }
+    .empty-log { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 16px 0; }
+
+    /* Form elements */
+    .form-row { display: flex; gap: 8px; }
+
+    input[type=text], input[type=number], input[type=time] {
       flex: 1;
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: 10px;
-      padding: 11px 14px;
+      padding: 10px 11px;
       color: var(--text);
-      font-size: 0.9rem;
+      font-size: 0.87rem;
       outline: none;
       min-width: 0;
     }
-
-    .custom-form input::placeholder { color: var(--muted); }
-    .custom-form input:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+    input:focus { border-color: var(--accent); }
+    input[type=time] { flex: 0 0 auto; width: auto; color-scheme: dark; }
 
     .add-btn {
       background: var(--accent);
       color: #fff;
       border: none;
       border-radius: 10px;
-      padding: 11px 18px;
-      font-size: 0.9rem;
+      padding: 10px 15px;
+      font-size: 0.87rem;
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
-      transition: opacity 0.15s;
       -webkit-tap-highlight-color: transparent;
     }
-
     .add-btn:active { opacity: 0.8; }
 
-    /* Log */
-    .log-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    /* ======= CAFFEINE ======= */
+    .total-mg { font-size: 3rem; font-weight: 800; line-height: 1; transition: color 0.3s; }
+    .total-mg.warn  { color: var(--warn); }
+    .total-mg.danger { color: var(--danger); }
+    .total-label { font-size: 0.76rem; color: var(--muted); margin-top: 3px; }
 
-    .log-item {
-      background: var(--surface);
-      border-radius: 12px;
-      padding: 12px 14px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .log-time {
-      font-size: 0.75rem;
-      color: var(--muted);
-      min-width: 42px;
-    }
-
-    .log-name {
-      flex: 1;
-      font-size: 0.88rem;
-      font-weight: 500;
-    }
-
-    .log-mg {
-      font-size: 0.88rem;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .log-del {
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 1.1rem;
-      cursor: pointer;
-      padding: 4px 6px;
-      border-radius: 6px;
-      line-height: 1;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .log-del:active { background: rgba(233,69,96,0.15); color: var(--accent); }
-
-    .empty-log {
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.85rem;
-      padding: 20px 0;
-    }
-
-    /* Settings row */
-    .settings-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-    }
-
-    .settings-row label {
-      font-size: 0.85rem;
-      color: var(--muted);
-      flex: 1;
-    }
-
-    .settings-row input[type=number] {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      padding: 8px 10px;
-      color: var(--text);
-      font-size: 0.9rem;
-      width: 80px;
-      text-align: right;
-      outline: none;
-    }
-
-    .settings-row input[type=number]:focus { border-color: var(--accent); }
-
-    /* Install banner */
-    #install-banner {
-      display: none;
-      background: var(--card);
-      border-top: 2px solid var(--accent);
-      padding: 14px 16px;
-      flex-direction: column;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-
-    #install-banner.show { display: flex; }
-
-    .install-text {
-      font-size: 0.85rem;
-      color: var(--text);
-    }
-
-    .install-text strong { color: var(--accent2); }
-
-    .install-actions {
-      display: flex;
-      gap: 10px;
-    }
-
-    .install-btn {
-      flex: 1;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      padding: 10px;
-      font-size: 0.88rem;
-      font-weight: 700;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .dismiss-btn {
+    .limit-bar-wrap {
+      margin-top: 11px;
       background: rgba(255,255,255,0.08);
-      color: var(--muted);
-      border: none;
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 0.88rem;
+      border-radius: 99px;
+      height: 7px;
+      overflow: hidden;
+    }
+    .limit-bar { height: 100%; border-radius: 99px; background: var(--safe); transition: width 0.5s, background 0.3s; }
+    .limit-bar.warn   { background: var(--warn); }
+    .limit-bar.danger { background: var(--danger); }
+    .limit-text { font-size: 0.68rem; color: var(--muted); margin-top: 5px; }
+
+    .quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+    .quick-btn {
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: var(--radius);
+      padding: 11px 9px;
       cursor: pointer;
+      text-align: left;
+      transition: background 0.15s, transform 0.1s;
       -webkit-tap-highlight-color: transparent;
     }
+    .quick-btn:active { transform: scale(0.97); background: var(--card); }
+    .quick-btn .item-emoji { font-size: 1.25rem; margin-bottom: 4px; display: block; }
+    .quick-btn .item-name  { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+    .quick-btn .item-mg    { font-size: 0.7rem; color: var(--accent); margin-top: 1px; }
 
-    /* iOS install hint */
-    #ios-hint {
-      display: none;
-      background: var(--card);
-      border-top: 2px solid var(--accent2);
-      padding: 14px 16px;
-      flex-direction: column;
-      gap: 6px;
+    .log-mg { font-size: 0.83rem; font-weight: 700; color: var(--accent); }
+
+    .log-late {
+      font-size: 0.6rem;
+      background: rgba(255,152,0,0.18);
+      color: var(--warn);
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-weight: 600;
       flex-shrink: 0;
     }
 
-    #ios-hint.show { display: flex; }
-
-    .ios-hint-text {
-      font-size: 0.82rem;
-      color: var(--text);
-      line-height: 1.5;
-    }
-
-    .ios-close {
-      align-self: flex-end;
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 1.2rem;
-      cursor: pointer;
-      padding: 0 4px;
-    }
-
-    @media (min-width: 480px) {
-      .quick-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-
-    /* Cutoff warning */
     .cutoff-banner {
       display: none;
-      background: rgba(255,152,0,0.12);
-      border: 1px solid rgba(255,152,0,0.35);
+      background: rgba(255,152,0,0.11);
+      border: 1px solid rgba(255,152,0,0.32);
       border-radius: 12px;
-      padding: 12px 14px;
-      font-size: 0.83rem;
+      padding: 10px 13px;
+      font-size: 0.79rem;
       color: var(--warn);
       line-height: 1.5;
     }
     .cutoff-banner.show { display: block; }
 
+    /* Trend chart */
+    .trend-bars  { display: flex; gap: 5px; height: 96px; align-items: flex-end; }
+    .trend-col   { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; }
+    .trend-val   { font-size: 0.53rem; color: var(--muted); min-height: 12px; text-align: center; }
+    .trend-bar   { width: 100%; border-radius: 3px 3px 0 0; background: var(--safe); }
+    .trend-bar.empty  { background: rgba(255,255,255,0.07); }
+    .trend-bar.warn   { background: var(--warn); }
+    .trend-bar.danger { background: var(--danger); }
+    .trend-labels { display: flex; gap: 5px; margin-top: 5px; }
+    .trend-lbl    { flex: 1; text-align: center; font-size: 0.57rem; color: var(--muted); }
+    .trend-lbl.today  { color: var(--accent); font-weight: 700; }
+    .trend-limit-line {
+      border-top: 1px dashed rgba(233,69,96,0.4);
+      margin-bottom: 4px;
+      font-size: 0.52rem;
+      color: rgba(233,69,96,0.6);
+      text-align: right;
+      padding-right: 2px;
+    }
+
+    .settings-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border-radius: var(--radius); padding: 12px 14px;
+    }
+    .settings-row label { font-size: 0.82rem; color: var(--muted); flex: 1; }
+    .settings-row input[type=number] { width: 75px; text-align: right; flex: 0 0 auto; }
+
+    /* ======= MEDITATION ======= */
+    .meditate-hero {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 22px 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .med-icon      { font-size: 3.2rem; line-height: 1; }
+    .med-status    { font-size: 0.98rem; font-weight: 600; }
+    .med-sub       { font-size: 0.76rem; color: var(--muted); }
+
+    .med-log-btn {
+      margin-top: 4px;
+      width: 100%;
+      background: var(--safe);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 13px;
+      font-size: 0.93rem;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s;
+    }
+    .med-log-btn:active { opacity: 0.8; }
+    .med-log-btn.done {
+      background: rgba(76,175,80,0.15);
+      color: var(--safe);
+      border: 1px solid rgba(76,175,80,0.35);
+    }
+
+    .streak-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 15px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .streak-num  { font-size: 2.6rem; font-weight: 800; color: var(--accent2); line-height: 1; }
+    .streak-title { font-size: 0.86rem; font-weight: 600; }
+    .streak-sub   { font-size: 0.71rem; color: var(--muted); margin-top: 2px; }
+
+    /* 7-day dots */
+    .dot-row { display: flex; gap: 5px; justify-content: center; background: var(--surface); border-radius: var(--radius); padding: 13px; }
+    .dot-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .dot {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+      border: 2px solid transparent;
+      transition: background 0.2s;
+    }
+    .dot.done { background: var(--safe); }
+    .dot.today-ring { border-color: var(--accent); }
+    .dot-label { font-size: 0.57rem; color: var(--muted); text-align: center; }
+    .dot-label.today { color: var(--accent); font-weight: 700; }
+
+    /* ======= WORKOUT ======= */
+    .workout-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+    .wtype-btn {
+      background: var(--surface);
+      border: 2px solid rgba(255,255,255,0.07);
+      border-radius: var(--radius);
+      padding: 13px 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .wtype-btn:active { background: var(--card); }
+    .wtype-btn.selected { border-color: var(--accent); background: rgba(233,69,96,0.09); }
+    .wtype-btn .w-icon { font-size: 1.6rem; display: block; margin-bottom: 4px; }
+    .wtype-btn .w-name { font-size: 0.75rem; font-weight: 600; color: var(--text); }
+
+    .w-type-badge {
+      font-size: 0.67rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 5px; flex-shrink: 0;
+    }
+    .w-type-badge.run  { background: rgba(33,150,243,0.2);  color: #64b5f6; }
+    .w-type-badge.yoga { background: rgba(156,39,176,0.2);  color: #ce93d8; }
+    .w-type-badge.lift { background: rgba(255,87,34,0.2);   color: #ff8a65; }
+
+    .w-duration { font-size: 0.75rem; color: var(--muted); }
+
+    /* Weekly summary */
+    .weekly-summary { background: var(--surface); border-radius: var(--radius); padding: 14px; display: flex; gap: 8px; }
+    .week-stat { flex: 1; text-align: center; }
+    .week-stat-icon { font-size: 1.1rem; }
+    .week-stat-num  { font-size: 1.7rem; font-weight: 800; line-height: 1; margin-top: 2px; }
+    .week-stat-num.run  { color: #64b5f6; }
+    .week-stat-num.yoga { color: #ce93d8; }
+    .week-stat-num.lift { color: #ff8a65; }
+    .week-stat-label { font-size: 0.6rem; color: var(--muted); margin-top: 2px; }
+
     /* Toast */
     .toast {
       position: fixed;
-      bottom: calc(var(--safe-bottom) + 24px);
+      bottom: calc(var(--safe-bottom) + 68px);
       left: 50%;
       transform: translateX(-50%) translateY(12px);
       background: rgba(255,152,0,0.95);
       color: #1a1a2e;
       font-weight: 700;
-      font-size: 0.85rem;
-      padding: 10px 20px;
+      font-size: 0.82rem;
+      padding: 9px 18px;
       border-radius: 99px;
       opacity: 0;
       transition: opacity 0.25s, transform 0.25s;
@@ -420,161 +367,192 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* Late badge in log */
-    .log-late {
-      font-size: 0.65rem;
-      background: rgba(255,152,0,0.18);
-      color: var(--warn);
-      border-radius: 4px;
-      padding: 2px 5px;
-      font-weight: 600;
-      flex-shrink: 0;
+    /* Install banners */
+    #install-banner {
+      display: none; background: var(--card);
+      border-top: 2px solid var(--accent);
+      padding: 12px 14px; flex-direction: column; gap: 8px; flex-shrink: 0;
+    }
+    #install-banner.show { display: flex; }
+    .install-text { font-size: 0.82rem; color: var(--text); }
+    .install-text strong { color: var(--accent2); }
+    .install-actions { display: flex; gap: 8px; }
+    .install-btn {
+      flex: 1; background: var(--accent); color: #fff;
+      border: none; border-radius: 10px; padding: 9px;
+      font-size: 0.83rem; font-weight: 700; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .dismiss-btn {
+      background: rgba(255,255,255,0.08); color: var(--muted);
+      border: none; border-radius: 10px; padding: 9px 12px;
+      font-size: 0.83rem; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    /* Time input */
-    .custom-form input[type=time] {
-      flex: 0 0 auto;
-      width: auto;
-      color-scheme: dark;
+    #ios-hint {
+      display: none; background: var(--card);
+      border-top: 2px solid var(--accent2);
+      padding: 12px 14px; flex-direction: column; gap: 5px; flex-shrink: 0;
+    }
+    #ios-hint.show { display: flex; }
+    .ios-hint-text { font-size: 0.79rem; color: var(--text); line-height: 1.5; }
+    .ios-close {
+      align-self: flex-end; background: none; border: none;
+      color: var(--muted); font-size: 1.1rem; cursor: pointer; padding: 0 4px;
     }
 
-    /* Trend chart */
-    .trend-chart {
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 16px 14px 12px;
-    }
-
-    .trend-bars {
-      display: flex;
-      gap: 5px;
-      height: 110px;
-      align-items: flex-end;
-    }
-
-    .trend-col {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 3px;
-      height: 100%;
-    }
-
-    .trend-val {
-      font-size: 0.58rem;
-      color: var(--muted);
-      min-height: 14px;
-      text-align: center;
-    }
-
-    .trend-bar {
-      width: 100%;
-      border-radius: 3px 3px 0 0;
-      background: var(--safe);
-    }
-
-    .trend-bar.empty { background: rgba(255,255,255,0.07); }
-    .trend-bar.warn  { background: var(--warn); }
-    .trend-bar.danger { background: var(--danger); }
-
-    .trend-labels {
-      display: flex;
-      gap: 5px;
-      margin-top: 6px;
-    }
-
-    .trend-lbl {
-      flex: 1;
-      text-align: center;
-      font-size: 0.62rem;
-      color: var(--muted);
-    }
-
-    .trend-lbl.today { color: var(--accent); font-weight: 700; }
-
-    .trend-limit-line {
-      border-top: 1px dashed rgba(233,69,96,0.4);
-      margin: 0 0 4px;
-      font-size: 0.58rem;
-      color: rgba(233,69,96,0.6);
-      text-align: right;
-      padding-right: 2px;
+    @media (min-width: 480px) {
+      .quick-grid { grid-template-columns: repeat(3, 1fr); }
     }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>☕ Caffeine <span>Tracker</span></h1>
+  <h1>Life <span>Points</span></h1>
   <div class="date-label" id="date-label"></div>
 </header>
 
 <main>
-  <!-- Summary -->
-  <div class="summary-card">
-    <div class="total-mg" id="total-mg">0</div>
-    <div class="total-label">mg caffeine today</div>
-    <div class="limit-bar-wrap">
-      <div class="limit-bar" id="limit-bar" style="width:0%"></div>
-    </div>
-    <div class="limit-text" id="limit-text">0 / 400 mg daily limit</div>
-  </div>
 
-  <!-- Cutoff warning -->
-  <div class="cutoff-banner" id="cutoff-banner">
-    ⚠️ <strong>Past your 1 PM cutoff.</strong> Caffeine now can disrupt your sleep. Consider skipping or switching to decaf.
-  </div>
+  <!-- ===== CAFFEINE TAB ===== -->
+  <section id="tab-caffeine" class="tab-content active">
 
-  <!-- Quick Add -->
-  <div>
-    <div class="section-title">Quick Add</div>
-    <div class="quick-grid" id="quick-grid"></div>
-  </div>
-
-  <!-- Custom Add -->
-  <div>
-    <div class="section-title">Custom Entry</div>
-    <div class="custom-form">
-      <div class="form-row">
-        <input type="text" id="custom-name" placeholder="Drink name" autocomplete="off" />
-        <input type="number" id="custom-mg" placeholder="mg" min="0" max="2000" />
+    <div class="card" style="text-align:center">
+      <div class="total-mg" id="total-mg">0</div>
+      <div class="total-label">mg caffeine today</div>
+      <div class="limit-bar-wrap">
+        <div class="limit-bar" id="limit-bar" style="width:0%"></div>
       </div>
-      <div class="form-row">
-        <input type="time" id="custom-time" />
-        <button class="add-btn" onclick="addCustom()">+ Add</button>
+      <div class="limit-text" id="limit-text">0 / 400 mg daily limit</div>
+    </div>
+
+    <div class="cutoff-banner" id="cutoff-banner">
+      ⚠️ <strong>Past your 1 PM cutoff.</strong> Caffeine now can disrupt your sleep. Consider switching to decaf.
+    </div>
+
+    <div>
+      <div class="section-title">Quick Add</div>
+      <div class="quick-grid" id="quick-grid"></div>
+    </div>
+
+    <div>
+      <div class="section-title">Custom Entry</div>
+      <div class="card" style="display:flex;flex-direction:column;gap:9px">
+        <div class="form-row">
+          <input type="text" id="custom-name" placeholder="Drink name" autocomplete="off" />
+          <input type="number" id="custom-mg" placeholder="mg" min="0" max="2000" />
+        </div>
+        <div class="form-row">
+          <input type="time" id="custom-time" />
+          <button class="add-btn" onclick="addCustom()">+ Add</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Today's Log -->
-  <div>
-    <div class="section-title">Today's Log</div>
-    <div class="log-list" id="log-list">
-      <div class="empty-log">No entries yet</div>
+    <div>
+      <div class="section-title">Today's Log</div>
+      <div class="log-list" id="log-list">
+        <div class="empty-log">No entries yet — add your first drink!</div>
+      </div>
     </div>
-  </div>
 
-  <!-- 7-Day Trend -->
-  <div>
-    <div class="section-title">7-Day Trend</div>
-    <div class="trend-chart">
-      <div id="trend-container"></div>
+    <div>
+      <div class="section-title">7-Day Trend</div>
+      <div class="card"><div id="trend-container"></div></div>
     </div>
-  </div>
 
-  <!-- Settings -->
-  <div>
-    <div class="section-title">Settings</div>
-    <div class="settings-row">
-      <label for="limit-input">Daily limit (mg)</label>
-      <input type="number" id="limit-input" value="400" min="50" max="2000" onchange="saveLimit()" />
+    <div>
+      <div class="section-title">Settings</div>
+      <div class="settings-row">
+        <label for="limit-input">Daily limit (mg)</label>
+        <input type="number" id="limit-input" value="400" min="50" max="2000" onchange="saveLimit()" />
+      </div>
     </div>
-  </div>
+  </section>
+
+  <!-- ===== MEDITATION TAB ===== -->
+  <section id="tab-meditate" class="tab-content">
+
+    <div class="meditate-hero">
+      <div class="med-icon" id="med-icon">🧘</div>
+      <div class="med-status" id="med-status">Ready to meditate?</div>
+      <div class="med-sub" id="med-sub">Tap below when you're done</div>
+      <button class="med-log-btn" id="med-btn" onclick="toggleMeditation()">Mark as Done</button>
+    </div>
+
+    <div class="streak-card">
+      <div class="streak-num" id="streak-num">0</div>
+      <div>
+        <div class="streak-title">Day Streak</div>
+        <div class="streak-sub" id="streak-sub">Start meditating daily to build your streak</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Last 7 Days</div>
+      <div class="dot-row" id="med-dots"></div>
+    </div>
+  </section>
+
+  <!-- ===== WORKOUT TAB ===== -->
+  <section id="tab-workout" class="tab-content">
+
+    <div>
+      <div class="section-title">Select Type</div>
+      <div class="workout-types">
+        <button class="wtype-btn selected" id="wtype-run" onclick="selectWorkoutType('run')">
+          <span class="w-icon">🏃</span>
+          <span class="w-name">Run</span>
+        </button>
+        <button class="wtype-btn" id="wtype-yoga" onclick="selectWorkoutType('yoga')">
+          <span class="w-icon">🧘</span>
+          <span class="w-name">Yoga</span>
+        </button>
+        <button class="wtype-btn" id="wtype-lift" onclick="selectWorkoutType('lift')">
+          <span class="w-icon">🏋️</span>
+          <span class="w-name">Lift</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column;gap:9px">
+      <div class="form-row">
+        <input type="number" id="workout-duration" placeholder="Duration (min)" min="1" max="600" />
+        <input type="time" id="workout-time" />
+      </div>
+      <button class="add-btn" onclick="addWorkout()">+ Log Workout</button>
+    </div>
+
+    <div>
+      <div class="section-title">Today's Workouts</div>
+      <div class="log-list" id="workout-log">
+        <div class="empty-log">No workouts logged today</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">This Week</div>
+      <div class="weekly-summary" id="weekly-summary"></div>
+    </div>
+  </section>
+
 </main>
 
-<!-- Android/Chrome install banner -->
+<!-- Tab bar -->
+<nav class="tab-bar">
+  <button class="tab-btn active" id="tabBtn-caffeine" onclick="showTab('caffeine')">
+    <span class="tab-icon">☕</span>Caffeine
+  </button>
+  <button class="tab-btn" id="tabBtn-meditate" onclick="showTab('meditate')">
+    <span class="tab-icon">🧘</span>Meditate
+  </button>
+  <button class="tab-btn" id="tabBtn-workout" onclick="showTab('workout')">
+    <span class="tab-icon">💪</span>Workout
+  </button>
+</nav>
+
 <div id="install-banner">
   <div class="install-text"><strong>Install as App</strong> — works offline, no browser UI</div>
   <div class="install-actions">
@@ -583,9 +561,6 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
-<!-- iOS install hint -->
 <div id="ios-hint">
   <button class="ios-close" onclick="dismissIos()">✕</button>
   <div class="ios-hint-text">
@@ -594,252 +569,388 @@
   </div>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
-  const PRESETS = [
-    { name: 'Espresso',        emoji: '☕', mg: 63  },
-    { name: 'Coffee (8oz)',    emoji: '☕', mg: 95  },
-    { name: 'SB Grande',       emoji: '🟢', mg: 310 },
-    { name: 'SB Venti',        emoji: '🟢', mg: 415 },
-    { name: 'Red Bull',        emoji: '🐂', mg: 80  },
-    { name: 'Monster',         emoji: '👾', mg: 160 },
-    { name: 'Cold Brew',       emoji: '🧊', mg: 200 },
-    { name: 'Green Tea',       emoji: '🍵', mg: 28  },
-    { name: 'Diet Coke',       emoji: '🥤', mg: 46  },
-    { name: 'Matcha Latte',    emoji: '🍵', mg: 70  },
-    { name: 'Excedrin (2 tab)',emoji: '💊', mg: 130 },
-  ];
+// =================== SHARED ===================
+const CUTOFF_HOUR = 13;
 
-  let entries = [];
-  let limit = 400;
+function nowHHMM() {
+  const n = new Date();
+  return n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
+}
 
-  function storageKey() {
-    return 'caffeine-' + new Date().toLocaleDateString('en-CA');
+function todayISO() { return new Date().toLocaleDateString('en-CA'); }
+function dateISO(d)  { return d.toLocaleDateString('en-CA'); }
+function parseHour(t) { return t ? parseInt(t.split(':')[0], 10) : new Date().getHours(); }
+function isLate(h)    { return h >= CUTOFF_HOUR; }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// =================== TABS ===================
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('tabBtn-' + name).classList.add('active');
+  if (name === 'meditate') renderMeditation();
+  if (name === 'workout')  renderWorkout();
+}
+
+// =================== CAFFEINE ===================
+const PRESETS = [
+  { name: 'Espresso',         emoji: '☕', mg: 63  },
+  { name: 'Coffee (8oz)',     emoji: '☕', mg: 95  },
+  { name: 'SB Grande',        emoji: '🟢', mg: 310 },
+  { name: 'SB Venti',         emoji: '🟢', mg: 415 },
+  { name: 'Red Bull',         emoji: '🐂', mg: 80  },
+  { name: 'Monster',          emoji: '👾', mg: 160 },
+  { name: 'Cold Brew',        emoji: '🧊', mg: 200 },
+  { name: 'Green Tea',        emoji: '🍵', mg: 28  },
+  { name: 'Diet Coke',        emoji: '🥤', mg: 46  },
+  { name: 'Matcha Latte',     emoji: '🍵', mg: 70  },
+  { name: 'Excedrin (2 tab)', emoji: '💊', mg: 130 },
+];
+
+let entries = [];
+let limit   = 400;
+
+function cafKey() { return 'caffeine-' + todayISO(); }
+
+function loadCaffeine() {
+  const raw = localStorage.getItem(cafKey());
+  entries = raw ? JSON.parse(raw) : [];
+  limit = parseInt(localStorage.getItem('caffeine-limit') || '400', 10);
+  document.getElementById('limit-input').value = limit;
+}
+
+function saveCaffeine() { localStorage.setItem(cafKey(), JSON.stringify(entries)); }
+
+function saveLimit() {
+  limit = parseInt(document.getElementById('limit-input').value, 10) || 400;
+  localStorage.setItem('caffeine-limit', limit);
+  renderCaffeine();
+}
+
+function addEntry(name, mg, timeStr) {
+  const hour = parseHour(timeStr);
+  const d = new Date();
+  if (timeStr) d.setHours(hour, parseInt(timeStr.split(':')[1], 10), 0);
+  const displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  entries.push({ id: Date.now(), name, mg: parseInt(mg, 10), time: displayTime, hour });
+  saveCaffeine();
+  renderCaffeine();
+}
+
+function deleteEntry(id) {
+  entries = entries.filter(e => e.id !== id);
+  saveCaffeine();
+  renderCaffeine();
+}
+
+function addCustom() {
+  const name = document.getElementById('custom-name').value.trim() || 'Custom';
+  const mg   = parseInt(document.getElementById('custom-mg').value, 10);
+  if (!mg || mg <= 0) { document.getElementById('custom-mg').focus(); return; }
+  const timeStr = document.getElementById('custom-time').value || nowHHMM();
+  if (isLate(parseHour(timeStr))) showToast('⚠️ Logged after your 1 PM cutoff');
+  addEntry(name, mg, timeStr);
+  document.getElementById('custom-name').value = '';
+  document.getElementById('custom-mg').value   = '';
+  document.getElementById('custom-time').value = nowHHMM();
+}
+
+function quickAdd(name, mg) {
+  if (isLate(new Date().getHours())) showToast('⚠️ After your 1 PM cutoff!');
+  addEntry(name, mg, null);
+}
+
+function buildQuickGrid() {
+  document.getElementById('quick-grid').innerHTML = PRESETS.map(p => `
+    <button class="quick-btn" onclick="quickAdd('${p.name}', ${p.mg})">
+      <span class="item-emoji">${p.emoji}</span>
+      <div class="item-name">${p.name}</div>
+      <div class="item-mg">${p.mg} mg</div>
+    </button>`).join('');
+}
+
+function checkCutoff() {
+  document.getElementById('cutoff-banner').classList.toggle('show', isLate(new Date().getHours()));
+}
+
+function getLast7CafData() {
+  const today = new Date();
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (6 - i));
+    const raw = localStorage.getItem('caffeine-' + dateISO(d));
+    const total = (raw ? JSON.parse(raw) : []).reduce((s, e) => s + e.mg, 0);
+    return { label: i === 6 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' }), total, isToday: i === 6 };
+  });
+}
+
+function buildTrend() {
+  const MAX = 80;
+  const data = getLast7CafData();
+  const maxTotal = Math.max(...data.map(d => d.total), limit, 1);
+  const limitH = Math.round((limit / maxTotal) * MAX);
+
+  const bars = data.map(d => {
+    const h   = d.total > 0 ? Math.max(3, Math.round((d.total / maxTotal) * MAX)) : 3;
+    const cls = d.total >= limit ? 'danger' : d.total >= limit * 0.75 ? 'warn' : d.total === 0 ? 'empty' : '';
+    return `<div class="trend-col">
+      <div class="trend-val">${d.total > 0 ? d.total : ''}</div>
+      <div class="trend-bar ${cls}" style="height:${h}px"></div>
+    </div>`;
+  }).join('');
+
+  const labels = data.map(d =>
+    `<div class="trend-lbl ${d.isToday ? 'today' : ''}">${d.label}</div>`).join('');
+
+  document.getElementById('trend-container').innerHTML = `
+    <div class="trend-limit-line" style="margin-bottom:${MAX - limitH}px">limit</div>
+    <div class="trend-bars">${bars}</div>
+    <div class="trend-labels">${labels}</div>`;
+}
+
+function renderCaffeine() {
+  const total = entries.reduce((s, e) => s + e.mg, 0);
+  const pct   = Math.min(100, (total / limit) * 100);
+
+  const totalEl = document.getElementById('total-mg');
+  totalEl.textContent = total;
+  totalEl.className   = 'total-mg' + (pct >= 100 ? ' danger' : pct >= 75 ? ' warn' : '');
+  document.getElementById('limit-bar').style.width = pct + '%';
+  document.getElementById('limit-bar').className   = 'limit-bar' + (pct >= 100 ? ' danger' : pct >= 75 ? ' warn' : '');
+  document.getElementById('limit-text').textContent = total + ' / ' + limit + ' mg daily limit';
+
+  buildTrend();
+
+  const log = document.getElementById('log-list');
+  if (!entries.length) {
+    log.innerHTML = '<div class="empty-log">No entries yet — add your first drink!</div>';
+  } else {
+    log.innerHTML = [...entries].reverse().map(e => `
+      <div class="log-item">
+        <div class="log-time">${e.time}</div>
+        <div class="log-name">${e.name}</div>
+        ${e.hour != null && e.hour >= CUTOFF_HOUR ? '<span class="log-late">late</span>' : ''}
+        <div class="log-mg">${e.mg}mg</div>
+        <button class="log-del" onclick="deleteEntry(${e.id})" aria-label="Delete">✕</button>
+      </div>`).join('');
   }
+}
 
-  function load() {
-    const raw = localStorage.getItem(storageKey());
-    entries = raw ? JSON.parse(raw) : [];
-    limit = parseInt(localStorage.getItem('caffeine-limit') || '400', 10);
-    document.getElementById('limit-input').value = limit;
+// =================== MEDITATION ===================
+function medKey(d) { return 'lp-meditate-' + (d ? dateISO(d) : todayISO()); }
+
+function isMeditatedOn(d) {
+  const raw = localStorage.getItem(medKey(d));
+  return raw ? JSON.parse(raw).logged : false;
+}
+
+function isMeditatedToday() { return isMeditatedOn(null); }
+
+function getMeditationStreak() {
+  let streak = 0;
+  const today = new Date();
+  const start = isMeditatedToday() ? 0 : 1;
+  for (let i = start; i < 365; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    if (isMeditatedOn(d)) streak++;
+    else break;
   }
+  return streak;
+}
 
-  function save() {
-    localStorage.setItem(storageKey(), JSON.stringify(entries));
+function toggleMeditation() {
+  if (isMeditatedToday()) {
+    localStorage.removeItem(medKey(null));
+  } else {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    localStorage.setItem(medKey(null), JSON.stringify({ logged: true, time: timeStr }));
   }
+  renderMeditation();
+}
 
-  function saveLimit() {
-    limit = parseInt(document.getElementById('limit-input').value, 10) || 400;
-    localStorage.setItem('caffeine-limit', limit);
-    render();
+function renderMeditation() {
+  const done    = isMeditatedToday();
+  const raw     = localStorage.getItem(medKey(null));
+  const timeStr = done && raw ? JSON.parse(raw).time : null;
+  const streak  = getMeditationStreak();
+
+  document.getElementById('med-icon').textContent   = done ? '✅' : '🧘';
+  document.getElementById('med-status').textContent = done ? 'Meditation complete!' : 'Ready to meditate?';
+  document.getElementById('med-sub').textContent    = done
+    ? (timeStr ? 'Logged at ' + timeStr : 'Well done!')
+    : "Tap below when you're done";
+
+  const btn = document.getElementById('med-btn');
+  btn.textContent = done ? 'Undo' : 'Mark as Done';
+  btn.className   = 'med-log-btn' + (done ? ' done' : '');
+
+  document.getElementById('streak-num').textContent = streak;
+  document.getElementById('streak-sub').textContent =
+    streak === 0 ? 'Start meditating daily to build your streak' :
+    streak === 1 ? 'Great start! Keep it going tomorrow.' :
+    streak + ' days in a row — keep it up!';
+
+  // 7-day dots
+  const today = new Date();
+  const dots = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (6 - i));
+    const logged  = isMeditatedOn(i === 6 ? null : d);
+    const isToday = i === 6;
+    const label   = isToday ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' });
+    return `<div class="dot-col">
+      <div class="dot ${logged ? 'done' : ''} ${isToday ? 'today-ring' : ''}"></div>
+      <div class="dot-label ${isToday ? 'today' : ''}">${label}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('med-dots').innerHTML = dots;
+}
+
+// =================== WORKOUT ===================
+const WORKOUT_TYPES = {
+  run:  { emoji: '🏃', label: 'Run',  cls: 'run'  },
+  yoga: { emoji: '🧘', label: 'Yoga', cls: 'yoga' },
+  lift: { emoji: '🏋️', label: 'Lift', cls: 'lift' },
+};
+
+let selectedType = 'run';
+
+function selectWorkoutType(type) {
+  selectedType = type;
+  Object.keys(WORKOUT_TYPES).forEach(t =>
+    document.getElementById('wtype-' + t).classList.toggle('selected', t === type));
+}
+
+function workoutKey(d) { return 'lp-workouts-' + (d ? dateISO(d) : todayISO()); }
+
+function addWorkout() {
+  const duration = parseInt(document.getElementById('workout-duration').value, 10) || null;
+  const timeStr  = document.getElementById('workout-time').value || nowHHMM();
+  const d = new Date();
+  d.setHours(parseInt(timeStr.split(':')[0], 10), parseInt(timeStr.split(':')[1], 10), 0);
+  const displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const raw      = localStorage.getItem(workoutKey(null));
+  const workouts = raw ? JSON.parse(raw) : [];
+  workouts.push({ id: Date.now(), type: selectedType, duration, time: displayTime });
+  localStorage.setItem(workoutKey(null), JSON.stringify(workouts));
+
+  document.getElementById('workout-duration').value = '';
+  document.getElementById('workout-time').value     = nowHHMM();
+  renderWorkout();
+}
+
+function deleteWorkout(id) {
+  const raw = localStorage.getItem(workoutKey(null));
+  const workouts = (raw ? JSON.parse(raw) : []).filter(w => w.id !== id);
+  localStorage.setItem(workoutKey(null), JSON.stringify(workouts));
+  renderWorkout();
+}
+
+function getWeeklyCounts() {
+  const counts = { run: 0, yoga: 0, lift: 0 };
+  const today = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const raw = localStorage.getItem(workoutKey(i === 0 ? null : d));
+    (raw ? JSON.parse(raw) : []).forEach(w => { if (counts[w.type] !== undefined) counts[w.type]++; });
   }
+  return counts;
+}
 
-  const CUTOFF_HOUR = 13; // 1 PM
+function renderWorkout() {
+  const raw      = localStorage.getItem(workoutKey(null));
+  const workouts = raw ? JSON.parse(raw) : [];
+  const log      = document.getElementById('workout-log');
 
-  function nowHHMM() {
-    const now = new Date();
-    return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-  }
-
-  function parseHour(timeStr) {
-    return timeStr ? parseInt(timeStr.split(':')[0], 10) : new Date().getHours();
-  }
-
-  function isLate(hour) { return hour >= CUTOFF_HOUR; }
-
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(t._timer);
-    t._timer = setTimeout(() => t.classList.remove('show'), 2800);
-  }
-
-  function checkCutoff() {
-    const late = isLate(new Date().getHours());
-    document.getElementById('cutoff-banner').classList.toggle('show', late);
-  }
-
-  function addEntry(name, mg, timeStr) {
-    const hour = parseHour(timeStr);
-    const d = new Date();
-    if (timeStr) d.setHours(hour, parseInt(timeStr.split(':')[1], 10), 0);
-    const displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    entries.push({ id: Date.now(), name, mg: parseInt(mg, 10), time: displayTime, hour });
-    save();
-    render();
-  }
-
-  function deleteEntry(id) {
-    entries = entries.filter(e => e.id !== id);
-    save();
-    render();
-  }
-
-  function addCustom() {
-    const name = document.getElementById('custom-name').value.trim() || 'Custom';
-    const mg = parseInt(document.getElementById('custom-mg').value, 10);
-    if (!mg || mg <= 0) { document.getElementById('custom-mg').focus(); return; }
-    const timeStr = document.getElementById('custom-time').value || nowHHMM();
-    if (isLate(parseHour(timeStr))) showToast('⚠️ Logged after your 1 PM cutoff');
-    addEntry(name, mg, timeStr);
-    document.getElementById('custom-name').value = '';
-    document.getElementById('custom-mg').value = '';
-    document.getElementById('custom-time').value = nowHHMM();
-  }
-
-  function quickAdd(name, mg) {
-    if (isLate(new Date().getHours())) showToast('⚠️ After your 1 PM cutoff!');
-    addEntry(name, mg, null);
-  }
-
-  function render() {
-    const total = entries.reduce((s, e) => s + e.mg, 0);
-    const pct = Math.min(100, (total / limit) * 100);
-
-    const totalEl = document.getElementById('total-mg');
-    const barEl = document.getElementById('limit-bar');
-    const limitTextEl = document.getElementById('limit-text');
-
-    totalEl.textContent = total;
-    totalEl.className = 'total-mg' + (pct >= 100 ? ' danger' : pct >= 75 ? ' warn' : '');
-    barEl.style.width = pct + '%';
-    barEl.className = 'limit-bar' + (pct >= 100 ? ' danger' : pct >= 75 ? ' warn' : '');
-    limitTextEl.textContent = total + ' / ' + limit + ' mg daily limit';
-
-    buildTrend();
-
-    const logList = document.getElementById('log-list');
-    if (entries.length === 0) {
-      logList.innerHTML = '<div class="empty-log">No entries yet — add your first drink!</div>';
-    } else {
-      logList.innerHTML = [...entries].reverse().map(e => `
-        <div class="log-item">
-          <div class="log-time">${e.time}</div>
-          <div class="log-name">${e.name}</div>
-          ${(e.hour != null && e.hour >= CUTOFF_HOUR) ? '<span class="log-late">late</span>' : ''}
-          <div class="log-mg">${e.mg}mg</div>
-          <button class="log-del" onclick="deleteEntry(${e.id})" aria-label="Delete">✕</button>
-        </div>
-      `).join('');
-    }
-  }
-
-  function getLast7Days() {
-    const today = new Date();
-    const result = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = 'caffeine-' + d.toLocaleDateString('en-CA');
-      const raw = localStorage.getItem(key);
-      const dayEntries = raw ? JSON.parse(raw) : [];
-      const total = dayEntries.reduce((s, e) => s + e.mg, 0);
-      result.push({
-        label: i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' }),
-        total,
-        isToday: i === 0
-      });
-    }
-    return result;
-  }
-
-  function buildTrend() {
-    const BAR_MAX_PX = 88;
-    const data = getLast7Days();
-    const maxTotal = Math.max(...data.map(d => d.total), limit, 1);
-    const limitLineH = Math.round((limit / maxTotal) * BAR_MAX_PX);
-
-    const bars = data.map(d => {
-      const h = d.total > 0 ? Math.max(3, Math.round((d.total / maxTotal) * BAR_MAX_PX)) : 3;
-      const cls = d.total >= limit ? 'danger' : d.total >= limit * 0.75 ? 'warn' : d.total === 0 ? 'empty' : '';
-      const val = d.total > 0 ? d.total : '';
-      return `<div class="trend-col">
-        <div class="trend-val">${val}</div>
-        <div class="trend-bar ${cls}" style="height:${h}px"></div>
+  if (!workouts.length) {
+    log.innerHTML = '<div class="empty-log">No workouts logged today</div>';
+  } else {
+    log.innerHTML = [...workouts].reverse().map(w => {
+      const cfg = WORKOUT_TYPES[w.type] || WORKOUT_TYPES.run;
+      return `<div class="log-item">
+        <div class="log-time">${w.time}</div>
+        <span class="w-type-badge ${cfg.cls}">${cfg.emoji} ${cfg.label}</span>
+        <div class="log-name w-duration">${w.duration ? w.duration + ' min' : ''}</div>
+        <button class="log-del" onclick="deleteWorkout(${w.id})" aria-label="Delete">✕</button>
       </div>`;
     }).join('');
-
-    const labels = data.map(d =>
-      `<div class="trend-lbl ${d.isToday ? 'today' : ''}">${d.label}</div>`
-    ).join('');
-
-    document.getElementById('trend-container').innerHTML = `
-      <div class="trend-limit-line" style="margin-bottom:${BAR_MAX_PX - limitLineH}px">limit</div>
-      <div class="trend-bars">${bars}</div>
-      <div class="trend-labels">${labels}</div>
-    `;
   }
 
-  function buildQuickGrid() {
-    const grid = document.getElementById('quick-grid');
-    grid.innerHTML = PRESETS.map(p => `
-      <button class="quick-btn" onclick="quickAdd('${p.name}', ${p.mg})">
-        <span class="item-emoji">${p.emoji}</span>
-        <div class="item-name">${p.name}</div>
-        <div class="item-mg">${p.mg} mg</div>
-      </button>
-    `).join('');
-  }
+  const counts = getWeeklyCounts();
+  document.getElementById('weekly-summary').innerHTML = Object.entries(WORKOUT_TYPES).map(([type, cfg]) => `
+    <div class="week-stat">
+      <div class="week-stat-icon">${cfg.emoji}</div>
+      <div class="week-stat-num ${cfg.cls}">${counts[type]}</div>
+      <div class="week-stat-label">${cfg.label}s this week</div>
+    </div>`).join('');
+}
 
-  // Date label
-  document.getElementById('date-label').textContent =
-    new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+// =================== PWA ===================
+let deferredPrompt = null;
 
-  // Pre-fill time input with current time
-  document.getElementById('custom-time').value = nowHHMM();
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!localStorage.getItem('install-dismissed'))
+    document.getElementById('install-banner').classList.add('show');
+});
 
-  // Custom enter key
-  document.getElementById('custom-mg').addEventListener('keydown', e => {
-    if (e.key === 'Enter') addCustom();
-  });
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-banner').classList.remove('show');
+});
 
-  // PWA install prompt (Android/Chrome)
-  let deferredPrompt = null;
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault();
-    deferredPrompt = e;
-    if (!localStorage.getItem('install-dismissed')) {
-      document.getElementById('install-banner').classList.add('show');
-    }
-  });
+function dismissInstall() {
+  localStorage.setItem('install-dismissed', '1');
+  document.getElementById('install-banner').classList.remove('show');
+}
 
-  document.getElementById('install-btn').addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    document.getElementById('install-banner').classList.remove('show');
-  });
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) &&
+    !window.navigator.standalone &&
+    !localStorage.getItem('ios-hint-dismissed')) {
+  document.getElementById('ios-hint').classList.add('show');
+}
 
-  function dismissInstall() {
-    localStorage.setItem('install-dismissed', '1');
-    document.getElementById('install-banner').classList.remove('show');
-  }
+function dismissIos() {
+  localStorage.setItem('ios-hint-dismissed', '1');
+  document.getElementById('ios-hint').classList.remove('show');
+}
 
-  // iOS hint
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.navigator.standalone;
-  if (isIos && !isStandalone && !localStorage.getItem('ios-hint-dismissed')) {
-    document.getElementById('ios-hint').classList.add('show');
-  }
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
-  function dismissIos() {
-    localStorage.setItem('ios-hint-dismissed', '1');
-    document.getElementById('ios-hint').classList.remove('show');
-  }
+// =================== INIT ===================
+document.getElementById('date-label').textContent =
+  new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
-  // Service worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
-  }
+document.getElementById('custom-time').value  = nowHHMM();
+document.getElementById('workout-time').value = nowHHMM();
 
-  // Init
-  load();
-  buildQuickGrid();
-  render();
-  checkCutoff();
-  // Re-check cutoff every minute in case the app is open across 1 PM
-  setInterval(checkCutoff, 60000);
+document.getElementById('custom-mg').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addCustom();
+});
+
+loadCaffeine();
+buildQuickGrid();
+renderCaffeine();
+checkCutoff();
+setInterval(checkCutoff, 60000);
 </script>
 </body>
 </html>
