@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#2d1b57" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tooth Fairy" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <title>Tooth Fairy Med Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #2d1b57;
+      --bg2: #1f1147;
+      --surface: #3d2872;
+      --card: #4a3391;
+      --accent: #ffd166;
+      --accent2: #ff8fa3;
+      --ceph: #c9a6ff;
+      --ibu: #64b5f6;
+      --tyl: #ff8a65;
+      --text: #f5f0ff;
+      --muted: #b3a1e0;
+      --safe: #4caf50;
+      --warn: #ff9800;
+      --danger: #f44336;
+      --radius: 16px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+      padding-top: var(--safe-top);
+      background:
+        radial-gradient(1.5px 1.5px at 20% 15%, rgba(255,255,255,0.5), transparent),
+        radial-gradient(1.5px 1.5px at 70% 8%, rgba(255,255,255,0.4), transparent),
+        radial-gradient(1px 1px at 85% 22%, rgba(255,255,255,0.35), transparent),
+        radial-gradient(1.5px 1.5px at 40% 30%, rgba(255,255,255,0.3), transparent),
+        radial-gradient(1px 1px at 10% 45%, rgba(255,255,255,0.3), transparent),
+        linear-gradient(180deg, var(--bg2), var(--bg) 40%);
+      background-attachment: fixed;
+    }
+
+    header {
+      background: rgba(61,40,114,0.7);
+      backdrop-filter: blur(6px);
+      padding: 13px 20px 9px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+    header h1 span { color: var(--accent); }
+    .date-label { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+    .sync-label { font-size: 0.63rem; color: var(--muted); margin-top: 3px; }
+    .sync-label.fail { color: var(--warn); }
+    .sync-label .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background: var(--safe); margin-right:4px; }
+    .sync-label.fail .dot { background: var(--warn); }
+    .sync-label.off .dot { background: var(--muted); }
+
+    main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+    .tab-content { display: none; flex-direction: column; gap: 13px; padding: 13px 13px 24px; }
+    .tab-content.active { display: flex; }
+
+    /* Bottom tab bar */
+    .tab-bar {
+      display: flex;
+      background: rgba(61,40,114,0.85);
+      backdrop-filter: blur(6px);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-bottom: var(--safe-bottom);
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 0 5px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.6rem;
+      font-weight: 500;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s;
+    }
+
+    .tab-btn .tab-icon { font-size: 1.2rem; line-height: 1; }
+    .tab-btn.active { color: var(--accent); }
+
+    /* Shared components */
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .log-list { display: flex; flex-direction: column; gap: 7px; }
+
+    .log-item {
+      background: var(--surface);
+      border-radius: 11px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .log-time { font-size: 0.7rem; color: var(--muted); min-width: 40px; }
+    .log-name { flex: 1; font-size: 0.83rem; font-weight: 500; }
+    .log-by { font-size: 0.65rem; color: var(--muted); }
+
+    .log-del {
+      background: none; border: none; color: var(--muted);
+      font-size: 1rem; cursor: pointer; padding: 4px 6px;
+      border-radius: 6px; line-height: 1;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .log-del:active { background: rgba(255,143,163,0.15); color: var(--accent2); }
+    .empty-log { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 16px 0; }
+
+    /* Form elements */
+    .form-row { display: flex; gap: 8px; }
+
+    input[type=text], input[type=number], input[type=time], input[type=datetime-local] {
+      flex: 1;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 10px 11px;
+      color: var(--text);
+      font-size: 0.87rem;
+      outline: none;
+      min-width: 0;
+    }
+    input::placeholder { color: var(--muted); }
+    input:focus { border-color: var(--accent); }
+    input[type=time] { flex: 0 0 auto; width: auto; color-scheme: dark; }
+    input[type=datetime-local] { color-scheme: dark; }
+
+    .add-btn {
+      background: var(--accent2);
+      color: #2d1b57;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 15px;
+      font-size: 0.87rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .add-btn:active { opacity: 0.8; }
+    .add-btn.gold { background: var(--accent); }
+    .add-btn.ghost {
+      background: rgba(255,255,255,0.08); color: var(--text);
+    }
+    .add-btn:disabled { opacity: 0.4; cursor: default; }
+
+    label.field-label { font-size: 0.72rem; color: var(--muted); display:block; margin-bottom: 4px; }
+
+    /* ======= TODAY HERO ======= */
+    .hero {
+      background: linear-gradient(160deg, var(--card), var(--surface));
+      border-radius: var(--radius);
+      padding: 22px 18px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .hero-emoji { font-size: 2.6rem; }
+    .hero-day { font-size: 2.2rem; font-weight: 800; line-height: 1.1; }
+    .hero-day span { color: var(--accent); }
+    .hero-sub { font-size: 0.78rem; color: var(--muted); }
+    .hero-progress-wrap {
+      width: 100%; margin-top: 8px;
+      background: rgba(255,255,255,0.1); border-radius: 99px; height: 8px; overflow: hidden;
+    }
+    .hero-progress { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.4s; }
+    .hero-progress-text { font-size: 0.68rem; color: var(--muted); margin-top: 5px; }
+    .hero-done-banner {
+      background: rgba(76,175,80,0.16); border: 1px solid rgba(76,175,80,0.4);
+      border-radius: 12px; padding: 10px 13px; font-size: 0.82rem; color: var(--safe);
+      font-weight: 600; margin-top: 4px;
+    }
+
+    /* Next up rows */
+    .next-row {
+      display: flex; align-items: center; gap: 11px;
+      background: var(--surface); border-radius: var(--radius); padding: 13px 14px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .next-emoji { font-size: 1.6rem; flex-shrink: 0; }
+    .next-info { flex: 1; min-width: 0; }
+    .next-name { font-size: 0.86rem; font-weight: 700; }
+    .next-status { font-size: 0.74rem; color: var(--muted); margin-top: 1px; }
+    .next-status.due   { color: var(--accent); font-weight: 600; }
+    .next-status.overdue { color: var(--danger); font-weight: 700; }
+    .next-log-btn {
+      flex-shrink: 0; background: var(--accent); color: #2d1b57;
+      border: none; border-radius: 10px; padding: 9px 14px;
+      font-size: 0.78rem; font-weight: 700; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .next-log-btn:active { opacity: 0.8; }
+
+    /* ======= CEPHALEXIN ======= */
+    .dose-count { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+    .dose-count-label { font-size: 0.76rem; color: var(--muted); margin-top: 3px; }
+    .due-banner {
+      border-radius: 12px; padding: 10px 13px; font-size: 0.8rem; line-height: 1.5; margin-top: 12px;
+      background: rgba(255,209,102,0.12); border: 1px solid rgba(255,209,102,0.35); color: var(--accent);
+    }
+    .due-banner.overdue { background: rgba(244,67,54,0.14); border-color: rgba(244,67,54,0.4); color: #ff8a80; }
+
+    /* ======= PAIN RELIEF ======= */
+    .med-card {
+      background: var(--surface); border-radius: var(--radius); padding: 15px 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-left: 4px solid var(--ibu);
+    }
+    .med-card.tylenol { border-left-color: var(--tyl); }
+    .med-card-top { display: flex; align-items: center; gap: 9px; }
+    .med-card-icon { font-size: 1.4rem; }
+    .med-card-name { font-size: 0.95rem; font-weight: 700; flex: 1; }
+    .med-badge {
+      font-size: 0.62rem; font-weight: 700; padding: 3px 8px; border-radius: 99px;
+      background: rgba(100,181,246,0.18); color: var(--ibu);
+    }
+    .med-badge.tylenol { background: rgba(255,138,101,0.18); color: var(--tyl); }
+    .med-card-status { font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+    .med-card-status strong { color: var(--text); }
+    .med-card-status.ok strong { color: var(--safe); }
+    .med-card-actions { margin-top: 10px; display: flex; gap: 8px; }
+    .med-card-actions input[type=time] { flex: 0 0 auto; }
+
+    .type-badge {
+      font-size: 0.64rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; flex-shrink:0;
+    }
+    .type-badge.ibuprofen { background: rgba(100,181,246,0.18); color: var(--ibu); }
+    .type-badge.tylenol   { background: rgba(255,138,101,0.18); color: var(--tyl); }
+    .type-badge.cephalexin { background: rgba(201,166,255,0.18); color: var(--ceph); }
+
+    .tip-card {
+      background: rgba(255,255,255,0.05); border-radius: var(--radius); padding: 12px 14px;
+      font-size: 0.76rem; color: var(--muted); line-height: 1.5;
+      border: 1px dashed rgba(255,255,255,0.15);
+    }
+
+    /* ======= SETTINGS ======= */
+    .settings-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border-radius: var(--radius); padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .settings-row label { font-size: 0.82rem; color: var(--muted); flex: 1; }
+    .settings-row input[type=number] { width: 75px; text-align: right; flex: 0 0 auto; }
+    .settings-row input[type=text] { flex: 0 0 auto; width: 130px; text-align: right; }
+    .settings-row input[type=datetime-local] { flex: 0 0 auto; width: 190px; font-size: 0.78rem; padding: 10px 6px; }
+
+    .code-box {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,209,102,0.1); border: 1px solid rgba(255,209,102,0.3);
+      border-radius: var(--radius); padding: 14px 16px;
+    }
+    .code-box .code-text { font-size: 1.15rem; font-weight: 800; letter-spacing: 1px; flex: 1; word-break: break-all; }
+    .copy-btn {
+      background: var(--accent); color: #2d1b57; border: none; border-radius: 9px;
+      padding: 8px 12px; font-size: 0.76rem; font-weight: 700; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+    }
+
+    .danger-btn {
+      background: rgba(244,67,54,0.14); color: #ff8a80; border: 1px solid rgba(244,67,54,0.35);
+      border-radius: 10px; padding: 11px; font-size: 0.83rem; font-weight: 700; cursor: pointer;
+      width: 100%; -webkit-tap-highlight-color: transparent;
+    }
+
+    .disclaimer {
+      font-size: 0.68rem; color: var(--muted); line-height: 1.6; text-align: center; padding: 6px 10px 2px;
+    }
+
+    /* ======= ONBOARDING ======= */
+    #onboarding {
+      position: fixed; inset: 0; z-index: 200;
+      background: var(--bg);
+      background:
+        radial-gradient(1.5px 1.5px at 20% 15%, rgba(255,255,255,0.5), transparent),
+        radial-gradient(1.5px 1.5px at 70% 8%, rgba(255,255,255,0.4), transparent),
+        radial-gradient(1px 1px at 85% 22%, rgba(255,255,255,0.35), transparent),
+        radial-gradient(1.5px 1.5px at 40% 78%, rgba(255,255,255,0.3), transparent),
+        radial-gradient(1px 1px at 10% 65%, rgba(255,255,255,0.3), transparent),
+        linear-gradient(180deg, var(--bg2), var(--bg) 40%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 28px; gap: 16px; overflow-y: auto;
+    }
+    #onboarding.hide { display: none; }
+    .ob-emoji { font-size: 3.4rem; }
+    .ob-title { font-size: 1.35rem; font-weight: 800; text-align: center; }
+    .ob-title span { color: var(--accent); }
+    .ob-sub { font-size: 0.86rem; color: var(--muted); text-align: center; max-width: 320px; line-height: 1.5; }
+    .ob-panel {
+      width: 100%; max-width: 340px; background: var(--surface); border-radius: var(--radius);
+      padding: 18px; display: flex; flex-direction: column; gap: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .ob-choice-btn {
+      width: 100%; background: var(--card); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 14px; text-align: left; cursor: pointer; color: var(--text);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ob-choice-btn strong { display: block; font-size: 0.9rem; }
+    .ob-choice-btn span { font-size: 0.74rem; color: var(--muted); }
+    .ob-choice-btn:active { background: var(--accent2); color: #2d1b57; }
+    .ob-choice-btn:active span, .ob-choice-btn:active strong { color: #2d1b57; }
+    .ob-back { background: none; border: none; color: var(--muted); font-size: 0.8rem; cursor: pointer; padding: 6px; }
+    .ob-error { color: #ff8a80; font-size: 0.78rem; text-align: center; min-height: 1em; }
+    .ob-link { background:none; border:none; color: var(--muted); font-size: 0.74rem; text-decoration: underline; cursor: pointer; margin-top: 4px; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: calc(var(--safe-bottom) + 68px);
+      left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: rgba(255,209,102,0.97);
+      color: #2d1b57;
+      font-weight: 700;
+      font-size: 0.82rem;
+      padding: 9px 18px;
+      border-radius: 99px;
+      opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 300;
+      max-width: 90vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Install banners */
+    #install-banner {
+      display: none; background: var(--card);
+      border-top: 2px solid var(--accent2);
+      padding: 12px 14px; flex-direction: column; gap: 8px; flex-shrink: 0;
+    }
+    #install-banner.show { display: flex; }
+    .install-text { font-size: 0.82rem; color: var(--text); }
+    .install-text strong { color: var(--accent); }
+    .install-actions { display: flex; gap: 8px; }
+    .install-btn {
+      flex: 1; background: var(--accent2); color: #2d1b57;
+      border: none; border-radius: 10px; padding: 9px;
+      font-size: 0.83rem; font-weight: 700; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .dismiss-btn {
+      background: rgba(255,255,255,0.08); color: var(--muted);
+      border: none; border-radius: 10px; padding: 9px 12px;
+      font-size: 0.83rem; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #ios-hint {
+      display: none; background: var(--card);
+      border-top: 2px solid var(--accent);
+      padding: 12px 14px; flex-direction: column; gap: 5px; flex-shrink: 0;
+    }
+    #ios-hint.show { display: flex; }
+    .ios-hint-text { font-size: 0.79rem; color: var(--text); line-height: 1.5; }
+    .ios-close {
+      align-self: flex-end; background: none; border: none;
+      color: var(--muted); font-size: 1.1rem; cursor: pointer; padding: 0 4px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== ONBOARDING ===== -->
+<div id="onboarding">
+  <div class="ob-emoji">🧚✨🦷</div>
+  <div class="ob-title">Tooth Fairy <span>Med Tracker</span></div>
+  <div class="ob-sub">Track antibiotic doses and cycle pain relief together with your partner — synced between both your phones.</div>
+
+  <div class="ob-panel" id="ob-step-choice">
+    <button class="ob-choice-btn" onclick="obShow('create')">
+      <strong>✨ Create a new tracker</strong>
+      <span>Start fresh — you'll get a code to share with your partner</span>
+    </button>
+    <button class="ob-choice-btn" onclick="obShow('join')">
+      <strong>🔗 Join with a code</strong>
+      <span>Your partner already created one and sent it to you</span>
+    </button>
+    <button class="ob-link" onclick="obShow('local')">Just use on this device, no sync</button>
+  </div>
+
+  <div class="ob-panel" id="ob-step-create" style="display:none">
+    <label class="field-label">Your name (shown next to doses you log)</label>
+    <input type="text" id="ob-create-name" placeholder="Mom / Dad / ..." autocomplete="off" />
+    <button class="add-btn gold" onclick="createTracker()">Create Tracker</button>
+    <button class="ob-back" onclick="obShow('choice')">← Back</button>
+    <div class="ob-error" id="ob-create-error"></div>
+  </div>
+
+  <div class="ob-panel" id="ob-step-join" style="display:none">
+    <label class="field-label">Your name (shown next to doses you log)</label>
+    <input type="text" id="ob-join-name" placeholder="Mom / Dad / ..." autocomplete="off" />
+    <label class="field-label">Code from your partner</label>
+    <input type="text" id="ob-join-code" placeholder="Paste code here" autocomplete="off" />
+    <button class="add-btn gold" onclick="joinTracker()">Join Tracker</button>
+    <button class="ob-back" onclick="obShow('choice')">← Back</button>
+    <div class="ob-error" id="ob-join-error"></div>
+  </div>
+
+  <div class="ob-panel" id="ob-step-local" style="display:none">
+    <label class="field-label">Your name</label>
+    <input type="text" id="ob-local-name" placeholder="Mom / Dad / ..." autocomplete="off" />
+    <button class="add-btn gold" onclick="startLocalOnly()">Start (no sync)</button>
+    <button class="ob-back" onclick="obShow('choice')">← Back</button>
+  </div>
+
+  <div class="ob-panel" id="ob-step-code" style="display:none">
+    <div style="text-align:center; font-size:0.85rem; color:var(--muted)">Share this code with your partner so their app syncs with yours:</div>
+    <div class="code-box"><div class="code-text" id="ob-code-display"></div><button class="copy-btn" onclick="copyCode()">Copy</button></div>
+    <button class="add-btn gold" onclick="finishOnboarding()">Got it, let's go!</button>
+  </div>
+</div>
+
+<header>
+  <h1>🧚 Tooth <span>Fairy</span> Tracker</h1>
+  <div class="date-label" id="date-label"></div>
+  <div class="sync-label" id="sync-label"><span class="dot"></span><span id="sync-text">—</span></div>
+</header>
+
+<main>
+
+  <!-- ===== TODAY TAB ===== -->
+  <section id="tab-today" class="tab-content active">
+
+    <div class="hero">
+      <div class="hero-emoji">🧚‍♀️🦷</div>
+      <div class="hero-day" id="hero-day">Day <span>1</span> of 10</div>
+      <div class="hero-sub" id="hero-sub">of the cephalexin course</div>
+      <div class="hero-progress-wrap"><div class="hero-progress" id="hero-progress" style="width:0%"></div></div>
+      <div class="hero-progress-text" id="hero-progress-text">0 of 20 doses given</div>
+      <div class="hero-done-banner" id="hero-done-banner" style="display:none">🎉 Course complete! The tooth fairy is proud!</div>
+    </div>
+
+    <div>
+      <div class="section-title">Next Up</div>
+      <div class="log-list" id="next-up-list" style="margin-top:8px"></div>
+    </div>
+
+    <div class="tip-card">
+      💡 This app can't send lock-screen reminders — check back in or set a phone alarm for cephalexin doses so none get missed.
+    </div>
+  </section>
+
+  <!-- ===== CEPHALEXIN TAB ===== -->
+  <section id="tab-ceph" class="tab-content">
+
+    <div class="card" style="text-align:center">
+      <div class="dose-count" id="ceph-count">0 / 20</div>
+      <div class="dose-count-label">cephalexin doses given</div>
+      <div class="hero-progress-wrap"><div class="hero-progress" id="ceph-progress" style="width:0%"></div></div>
+      <div class="due-banner" id="ceph-due-banner">—</div>
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column;gap:9px">
+      <div class="section-title">Log a Dose (15 mL)</div>
+      <div class="form-row">
+        <input type="time" id="ceph-time" />
+        <button class="add-btn gold" onclick="logCephalexin()">+ Log Dose</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">History</div>
+      <div class="log-list" id="ceph-log"></div>
+    </div>
+  </section>
+
+  <!-- ===== PAIN RELIEF TAB ===== -->
+  <section id="tab-pain" class="tab-content">
+
+    <div class="med-card">
+      <div class="med-card-top">
+        <div class="med-card-icon">🔵</div>
+        <div class="med-card-name">Children's Ibuprofen</div>
+        <div class="med-badge">Advil / Motrin</div>
+      </div>
+      <div class="med-card-status" id="ibu-status">Never given yet</div>
+      <div class="med-card-actions">
+        <input type="time" id="ibu-time" />
+        <button class="add-btn" onclick="logPain('ibuprofen')">+ Log</button>
+      </div>
+    </div>
+
+    <div class="med-card tylenol">
+      <div class="med-card-top">
+        <div class="med-card-icon">🟠</div>
+        <div class="med-card-name">Children's Tylenol</div>
+        <div class="med-badge tylenol">Acetaminophen</div>
+      </div>
+      <div class="med-card-status" id="tyl-status">Never given yet</div>
+      <div class="med-card-actions">
+        <input type="time" id="tyl-time" />
+        <button class="add-btn" onclick="logPain('tylenol')">+ Log</button>
+      </div>
+    </div>
+
+    <div class="tip-card">
+      🔄 Cycling tip: alternating ibuprofen and Tylenol lets you medicate more often than either alone, since they work differently in the body. Confirm the exact schedule and doses with your dentist or pediatrician — this app just tracks timing so you don't lose track of who took what, when.
+    </div>
+
+    <div>
+      <div class="section-title">Combined History</div>
+      <div class="log-list" id="pain-log"></div>
+    </div>
+  </section>
+
+  <!-- ===== SETTINGS TAB ===== -->
+  <section id="tab-settings" class="tab-content">
+
+    <div>
+      <div class="section-title">Shared Family Code</div>
+      <div class="code-box" style="margin-top:8px">
+        <div class="code-text" id="settings-code-display" style="font-size:0.95rem">—</div>
+        <button class="copy-btn" id="settings-copy-btn" onclick="copyCode()">Copy</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Your Name</div>
+      <div class="settings-row" style="margin-top:8px">
+        <label for="who-input">Shown next to doses you log</label>
+        <input type="text" id="who-input" onchange="saveWho()" />
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Cephalexin Course</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        <div class="settings-row">
+          <label for="set-ceph-start">Course start</label>
+          <input type="datetime-local" id="set-ceph-start" onchange="saveCephSettings()" />
+        </div>
+        <div class="settings-row">
+          <label for="set-ceph-days">Duration (days)</label>
+          <input type="number" id="set-ceph-days" min="1" max="30" onchange="saveCephSettings()" />
+        </div>
+        <div class="settings-row">
+          <label for="set-ceph-interval">Hours between doses</label>
+          <input type="number" id="set-ceph-interval" min="1" max="24" onchange="saveCephSettings()" />
+        </div>
+        <div class="settings-row">
+          <label for="set-ceph-dose">Dose amount</label>
+          <input type="text" id="set-ceph-dose" onchange="saveCephSettings()" />
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Pain Relief Cycling</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        <div class="settings-row">
+          <label for="set-ibu-interval">Min hours between ibuprofen doses</label>
+          <input type="number" id="set-ibu-interval" min="1" max="24" onchange="savePainSettings()" />
+        </div>
+        <div class="settings-row">
+          <label for="set-tyl-interval">Min hours between Tylenol doses</label>
+          <input type="number" id="set-tyl-interval" min="1" max="24" onchange="savePainSettings()" />
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="danger-btn" onclick="leaveTracker()">Leave / switch tracker code</button>
+      <button class="danger-btn" onclick="clearAllData()">Clear all logged doses</button>
+    </div>
+
+    <div class="disclaimer">
+      Not medical advice. Always follow your dentist's or pediatrician's specific instructions for dosing and timing, and consult them or a pharmacist before combining or cycling medications.
+    </div>
+  </section>
+
+</main>
+
+<!-- Tab bar -->
+<nav class="tab-bar">
+  <button class="tab-btn active" id="tabBtn-today" onclick="showTab('today')">
+    <span class="tab-icon">✨</span>Today
+  </button>
+  <button class="tab-btn" id="tabBtn-ceph" onclick="showTab('ceph')">
+    <span class="tab-icon">💊</span>Antibiotic
+  </button>
+  <button class="tab-btn" id="tabBtn-pain" onclick="showTab('pain')">
+    <span class="tab-icon">🩹</span>Pain Relief
+  </button>
+  <button class="tab-btn" id="tabBtn-settings" onclick="showTab('settings')">
+    <span class="tab-icon">⚙️</span>Settings
+  </button>
+</nav>
+
+<div id="install-banner">
+  <div class="install-text"><strong>Install as App</strong> — works offline, no browser UI</div>
+  <div class="install-actions">
+    <button class="install-btn" id="install-btn">Install</button>
+    <button class="dismiss-btn" onclick="dismissInstall()">Later</button>
+  </div>
+</div>
+
+<div id="ios-hint">
+  <button class="ios-close" onclick="dismissIos()">✕</button>
+  <div class="ios-hint-text">
+    To install on iPhone/iPad:<br>
+    Tap <strong>Share ⬆</strong> → <strong>Add to Home Screen</strong>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// =================== CONSTANTS ===================
+const KVDB_BASE = 'https://kvdb.io';
+const SYNC_INTERVAL_MS = 20000;
+const HOUR = 3600 * 1000;
+const DAY = 24 * HOUR;
+
+let state = null;
+let familyCode = null;
+let who = '';
+let syncTimer = null;
+let pushDebounce = null;
+
+// =================== HELPERS ===================
+function nowHHMM() {
+  const n = new Date();
+  return n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
+}
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function timeStrToDate(timeStr) {
+  const d = new Date();
+  if (timeStr) {
+    const [h, m] = timeStr.split(':').map(Number);
+    d.setHours(h, m, 0, 0);
+  }
+  return d;
+}
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtDateTime(iso) {
+  return new Date(iso).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtDelta(ms) {
+  const mins = Math.round(Math.abs(ms) / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h <= 0) return m + 'm';
+  return h + 'h ' + m + 'm';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function genCode() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let c = '';
+  for (let i = 0; i < 10; i++) c += chars[Math.floor(Math.random() * chars.length)];
+  return c;
+}
+
+// =================== DEFAULT STATE ===================
+function defaultState() {
+  const start = new Date();
+  start.setMinutes(0, 0, 0);
+  return {
+    cephalexin: {
+      doseMl: '15 mL',
+      intervalHours: 12,
+      startAt: start.toISOString(),
+      days: 10,
+      updatedAt: Date.now()
+    },
+    painSettings: {
+      ibuprofenIntervalHours: 6,
+      tylenolIntervalHours: 4,
+      updatedAt: Date.now()
+    },
+    doses: {
+      cephalexin: [],
+      ibuprofen: [],
+      tylenol: []
+    }
+  };
+}
+
+// =================== PERSISTENCE ===================
+function loadLocal() {
+  familyCode = localStorage.getItem('tf-family-code') || null;
+  who = localStorage.getItem('tf-who') || '';
+  const raw = localStorage.getItem('tf-state');
+  state = raw ? JSON.parse(raw) : defaultState();
+}
+
+function saveLocal() {
+  localStorage.setItem('tf-state', JSON.stringify(state));
+}
+
+// =================== SYNC ===================
+function setSyncStatus(status, text) {
+  const el = document.getElementById('sync-label');
+  const txt = document.getElementById('sync-text');
+  el.classList.remove('fail', 'off');
+  if (status === 'off') { el.classList.add('off'); txt.textContent = text || 'Not synced — local only'; }
+  else if (status === 'fail') { el.classList.add('fail'); txt.textContent = text || 'Sync failed — will retry'; }
+  else { txt.textContent = text || 'Synced just now'; }
+}
+
+function mergeDoseArrays(a, b) {
+  const byId = new Map();
+  [...a, ...b].forEach(d => byId.set(d.id, d));
+  return [...byId.values()].sort((x, y) => new Date(x.at) - new Date(y.at));
+}
+
+function mergeState(local, remote) {
+  const merged = JSON.parse(JSON.stringify(local));
+  if ((remote.cephalexin?.updatedAt || 0) > (local.cephalexin?.updatedAt || 0)) {
+    merged.cephalexin = remote.cephalexin;
+  }
+  if ((remote.painSettings?.updatedAt || 0) > (local.painSettings?.updatedAt || 0)) {
+    merged.painSettings = remote.painSettings;
+  }
+  ['cephalexin', 'ibuprofen', 'tylenol'].forEach(type => {
+    merged.doses[type] = mergeDoseArrays(local.doses[type] || [], (remote.doses && remote.doses[type]) || []);
+  });
+  return merged;
+}
+
+async function pullRemote() {
+  if (!familyCode) { setSyncStatus('off'); return; }
+  const res = await fetch(`${KVDB_BASE}/${familyCode}/state`, { cache: 'no-store' });
+  if (res.status === 404) return;
+  if (!res.ok) throw new Error('pull failed: ' + res.status);
+  const text = await res.text();
+  if (!text) return;
+  const remote = JSON.parse(text);
+  state = mergeState(state, remote);
+  saveLocal();
+}
+
+async function pushRemote() {
+  if (!familyCode) return;
+  const res = await fetch(`${KVDB_BASE}/${familyCode}/state`, {
+    method: 'POST',
+    body: JSON.stringify(state)
+  });
+  if (!res.ok) throw new Error('push failed: ' + res.status);
+}
+
+async function syncNow(quiet) {
+  if (!familyCode) { setSyncStatus('off'); return; }
+  try {
+    await pullRemote();
+    await pushRemote();
+    saveLocal();
+    render();
+    setSyncStatus('ok', 'Synced at ' + nowHHMM());
+  } catch (e) {
+    setSyncStatus('fail');
+    if (!quiet) showToast('⚠️ Could not sync — check your connection');
+  }
+}
+
+function schedulePush() {
+  saveLocal();
+  clearTimeout(pushDebounce);
+  pushDebounce = setTimeout(() => syncNow(true), 700);
+}
+
+function startSyncLoop() {
+  clearInterval(syncTimer);
+  if (!familyCode) return;
+  syncTimer = setInterval(() => syncNow(true), SYNC_INTERVAL_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncNow(true);
+  });
+}
+
+// =================== ONBOARDING ===================
+function obShow(step) {
+  ['choice', 'create', 'join', 'local', 'code'].forEach(s => {
+    document.getElementById('ob-step-' + s).style.display = (s === step) ? 'flex' : 'none';
+  });
+}
+
+async function createTracker() {
+  const nameEl = document.getElementById('ob-create-name');
+  const errEl = document.getElementById('ob-create-error');
+  errEl.textContent = '';
+  const name = nameEl.value.trim() || 'Parent';
+  const code = genCode();
+  const initial = defaultState();
+  try {
+    const res = await fetch(`${KVDB_BASE}/${code}/state`, { method: 'POST', body: JSON.stringify(initial) });
+    if (!res.ok) throw new Error('create failed');
+  } catch (e) {
+    errEl.textContent = "Couldn't reach the sync server. Check your connection and try again, or use 'no sync' instead.";
+    return;
+  }
+  who = name;
+  familyCode = code;
+  state = initial;
+  localStorage.setItem('tf-who', who);
+  localStorage.setItem('tf-family-code', familyCode);
+  saveLocal();
+  document.getElementById('ob-code-display').textContent = code;
+  obShow('code');
+}
+
+async function joinTracker() {
+  const nameEl = document.getElementById('ob-join-name');
+  const codeEl = document.getElementById('ob-join-code');
+  const errEl = document.getElementById('ob-join-error');
+  errEl.textContent = '';
+  const code = codeEl.value.trim().toUpperCase().replace(/\s+/g, '');
+  if (!code) { errEl.textContent = 'Enter the code your partner sent you.'; return; }
+  try {
+    const res = await fetch(`${KVDB_BASE}/${code}/state`, { cache: 'no-store' });
+    if (res.status === 404) { errEl.textContent = "That code wasn't found — double-check it with your partner."; return; }
+    if (!res.ok) throw new Error('join failed');
+    const text = await res.text();
+    state = text ? JSON.parse(text) : defaultState();
+  } catch (e) {
+    errEl.textContent = "Couldn't reach the sync server. Check your connection and try again.";
+    return;
+  }
+  who = nameEl.value.trim() || 'Parent';
+  familyCode = code;
+  localStorage.setItem('tf-who', who);
+  localStorage.setItem('tf-family-code', familyCode);
+  saveLocal();
+  finishOnboarding();
+}
+
+function startLocalOnly() {
+  who = document.getElementById('ob-local-name').value.trim() || 'Parent';
+  familyCode = null;
+  state = defaultState();
+  localStorage.setItem('tf-who', who);
+  localStorage.removeItem('tf-family-code');
+  saveLocal();
+  finishOnboarding();
+}
+
+function copyCode() {
+  if (!familyCode) return;
+  navigator.clipboard?.writeText(familyCode).then(() => showToast('Code copied!'));
+}
+
+function finishOnboarding() {
+  localStorage.setItem('tf-onboarded', '1');
+  document.getElementById('onboarding').classList.add('hide');
+  boot();
+}
+
+function leaveTracker() {
+  if (!confirm("Leave this tracker code? You'll set up or join a tracker again.")) return;
+  localStorage.removeItem('tf-family-code');
+  localStorage.removeItem('tf-who');
+  localStorage.removeItem('tf-state');
+  location.reload();
+}
+
+function clearAllData() {
+  if (!confirm('Clear all logged doses for everyone syncing this code? This cannot be undone.')) return;
+  state.doses = { cephalexin: [], ibuprofen: [], tylenol: [] };
+  schedulePush();
+  renderAll();
+  showToast('Log cleared');
+}
+
+// =================== TABS ===================
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('tabBtn-' + name).classList.add('active');
+  renderAll();
+}
+
+// =================== CEPHALEXIN LOGIC ===================
+function totalCephDoses() {
+  return Math.round((state.cephalexin.days * 24) / state.cephalexin.intervalHours);
+}
+
+function cephDayNumber() {
+  const start = new Date(state.cephalexin.startAt);
+  const now = new Date();
+  if (now < start) return 0;
+  return Math.min(state.cephalexin.days, Math.floor((now - start) / DAY) + 1);
+}
+
+function cephNextDue() {
+  const doses = state.doses.cephalexin;
+  if (!doses.length) return new Date(state.cephalexin.startAt);
+  const last = new Date(doses[doses.length - 1].at);
+  return new Date(last.getTime() + state.cephalexin.intervalHours * HOUR);
+}
+
+function logCephalexin() {
+  const timeStr = document.getElementById('ceph-time').value || nowHHMM();
+  const at = timeStrToDate(timeStr).toISOString();
+  state.doses.cephalexin.push({ id: genId(), at, by: who });
+  state.doses.cephalexin.sort((a, b) => new Date(a.at) - new Date(b.at));
+  schedulePush();
+  renderAll();
+  showToast('✨ Cephalexin dose logged');
+}
+
+function deleteDose(type, id) {
+  state.doses[type] = state.doses[type].filter(d => d.id !== id);
+  schedulePush();
+  renderAll();
+}
+
+// =================== PAIN RELIEF LOGIC ===================
+function painLastDose(type) {
+  const d = state.doses[type];
+  return d.length ? new Date(d[d.length - 1].at) : null;
+}
+
+function painNextEarliest(type) {
+  const last = painLastDose(type);
+  if (!last) return null;
+  const hrs = type === 'ibuprofen' ? state.painSettings.ibuprofenIntervalHours : state.painSettings.tylenolIntervalHours;
+  return new Date(last.getTime() + hrs * HOUR);
+}
+
+function logPain(type) {
+  const inputId = type === 'ibuprofen' ? 'ibu-time' : 'tyl-time';
+  const timeStr = document.getElementById(inputId).value || nowHHMM();
+  const at = timeStrToDate(timeStr).toISOString();
+  state.doses[type].push({ id: genId(), at, by: who });
+  state.doses[type].sort((a, b) => new Date(a.at) - new Date(b.at));
+  schedulePush();
+  renderAll();
+  showToast((type === 'ibuprofen' ? '🔵 Ibuprofen' : '🟠 Tylenol') + ' dose logged');
+}
+
+// =================== SETTINGS ===================
+function saveWho() {
+  who = document.getElementById('who-input').value.trim() || 'Parent';
+  localStorage.setItem('tf-who', who);
+}
+
+function saveCephSettings() {
+  state.cephalexin.startAt = new Date(document.getElementById('set-ceph-start').value).toISOString();
+  state.cephalexin.days = parseInt(document.getElementById('set-ceph-days').value, 10) || 10;
+  state.cephalexin.intervalHours = parseInt(document.getElementById('set-ceph-interval').value, 10) || 12;
+  state.cephalexin.doseMl = document.getElementById('set-ceph-dose').value.trim() || '15 mL';
+  state.cephalexin.updatedAt = Date.now();
+  schedulePush();
+  renderAll();
+}
+
+function savePainSettings() {
+  state.painSettings.ibuprofenIntervalHours = parseInt(document.getElementById('set-ibu-interval').value, 10) || 6;
+  state.painSettings.tylenolIntervalHours = parseInt(document.getElementById('set-tyl-interval').value, 10) || 4;
+  state.painSettings.updatedAt = Date.now();
+  schedulePush();
+  renderAll();
+}
+
+// =================== RENDER ===================
+function renderToday() {
+  const dayNum = cephDayNumber();
+  const total = totalCephDoses();
+  const given = state.doses.cephalexin.length;
+  const start = new Date(state.cephalexin.startAt);
+  const now = new Date();
+
+  document.getElementById('hero-day').innerHTML =
+    now < start ? 'Starts ' + start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+                : 'Day <span>' + dayNum + '</span> of ' + state.cephalexin.days;
+  document.getElementById('hero-sub').textContent = 'of the cephalexin course';
+  const pct = Math.min(100, (given / total) * 100);
+  document.getElementById('hero-progress').style.width = pct + '%';
+  document.getElementById('hero-progress-text').textContent = given + ' of ' + total + ' doses given';
+  document.getElementById('hero-done-banner').style.display = given >= total ? 'block' : 'none';
+
+  const rows = [];
+
+  const cephDue = cephNextDue();
+  const cephDelta = cephDue - now;
+  rows.push({
+    emoji: '💊', name: 'Cephalexin (' + escapeHtml(state.cephalexin.doseMl) + ')',
+    due: cephDue, delta: cephDelta,
+    doneAll: given >= total,
+    tab: 'ceph'
+  });
+
+  ['ibuprofen', 'tylenol'].forEach(type => {
+    const next = painNextEarliest(type);
+    const delta = next ? next - now : -1;
+    rows.push({
+      emoji: type === 'ibuprofen' ? '🔵' : '🟠',
+      name: type === 'ibuprofen' ? 'Ibuprofen' : 'Tylenol',
+      due: next, delta,
+      never: !next,
+      tab: 'pain'
+    });
+  });
+
+  rows.sort((a, b) => (a.delta ?? -1) - (b.delta ?? -1));
+
+  document.getElementById('next-up-list').innerHTML = rows.map(r => {
+    let statusHtml, statusCls = '';
+    if (r.doneAll) { statusHtml = '🎉 Course complete'; }
+    else if (r.never) { statusHtml = 'OK to give now'; statusCls = 'due'; }
+    else if (r.delta <= 0) { statusHtml = r.name.startsWith('Cephalexin') ? 'Overdue by ' + fmtDelta(r.delta) : 'OK to give now'; statusCls = r.name.startsWith('Cephalexin') ? 'overdue' : 'due'; }
+    else { statusHtml = 'Due in ' + fmtDelta(r.delta) + ' (' + fmtTime(r.due) + ')'; }
+    return `<div class="next-row">
+      <div class="next-emoji">${r.emoji}</div>
+      <div class="next-info">
+        <div class="next-name">${r.name}</div>
+        <div class="next-status ${statusCls}">${statusHtml}</div>
+      </div>
+      <button class="next-log-btn" onclick="showTab('${r.tab}')">Log</button>
+    </div>`;
+  }).join('');
+}
+
+function renderCephalexin() {
+  const total = totalCephDoses();
+  const given = state.doses.cephalexin.length;
+  document.getElementById('ceph-count').textContent = given + ' / ' + total;
+  document.getElementById('ceph-progress').style.width = Math.min(100, (given / total) * 100) + '%';
+
+  const banner = document.getElementById('ceph-due-banner');
+  const now = new Date();
+  if (given >= total) {
+    banner.className = 'due-banner';
+    banner.textContent = '🎉 All done! Course complete — great job.';
+  } else {
+    const due = cephNextDue();
+    const delta = due - now;
+    if (delta <= 0) {
+      banner.className = 'due-banner overdue';
+      banner.textContent = '⏰ Overdue by ' + fmtDelta(delta) + ' — next dose was due at ' + fmtTime(due);
+    } else {
+      banner.className = 'due-banner';
+      banner.textContent = 'Next dose due in ' + fmtDelta(delta) + ' at ' + fmtTime(due);
+    }
+  }
+
+  const log = document.getElementById('ceph-log');
+  const doses = state.doses.cephalexin;
+  if (!doses.length) {
+    log.innerHTML = '<div class="empty-log">No doses logged yet</div>';
+  } else {
+    log.innerHTML = [...doses].reverse().map(d => `
+      <div class="log-item">
+        <div class="log-time">${fmtTime(d.at)}</div>
+        <div class="log-name">${escapeHtml(state.cephalexin.doseMl)}${d.by ? ' <span class="log-by">— ' + escapeHtml(d.by) + '</span>' : ''}</div>
+        <button class="log-del" onclick="deleteDose('cephalexin','${d.id}')" aria-label="Delete">✕</button>
+      </div>`).join('');
+  }
+}
+
+function renderPainCard(type) {
+  const last = painLastDose(type);
+  const next = painNextEarliest(type);
+  const now = new Date();
+  const statusEl = document.getElementById(type === 'ibuprofen' ? 'ibu-status' : 'tyl-status');
+  if (!last) {
+    statusEl.className = 'med-card-status ok';
+    statusEl.innerHTML = '<strong>Never given</strong> — OK to give now';
+  } else {
+    const lastStr = fmtDateTime(last);
+    if (next - now <= 0) {
+      statusEl.className = 'med-card-status ok';
+      statusEl.innerHTML = 'Last given ' + lastStr + ' — <strong>OK to give now</strong>';
+    } else {
+      statusEl.className = 'med-card-status';
+      statusEl.innerHTML = 'Last given ' + lastStr + ' — earliest again <strong>' + fmtTime(next) + '</strong> (' + fmtDelta(next - now) + ')';
+    }
+  }
+}
+
+function renderPainRelief() {
+  renderPainCard('ibuprofen');
+  renderPainCard('tylenol');
+
+  const combined = [
+    ...state.doses.ibuprofen.map(d => ({ ...d, type: 'ibuprofen', label: 'Ibuprofen' })),
+    ...state.doses.tylenol.map(d => ({ ...d, type: 'tylenol', label: 'Tylenol' }))
+  ].sort((a, b) => new Date(b.at) - new Date(a.at));
+
+  const log = document.getElementById('pain-log');
+  if (!combined.length) {
+    log.innerHTML = '<div class="empty-log">No pain relief logged yet</div>';
+  } else {
+    log.innerHTML = combined.map(d => `
+      <div class="log-item">
+        <div class="log-time">${fmtTime(d.at)}</div>
+        <span class="type-badge ${d.type}">${d.label}</span>
+        <div class="log-name">${d.by ? escapeHtml(d.by) : ''}</div>
+        <button class="log-del" onclick="deleteDose('${d.type}','${d.id}')" aria-label="Delete">✕</button>
+      </div>`).join('');
+  }
+}
+
+function renderSettings() {
+  document.getElementById('settings-code-display').textContent = familyCode || 'No code — local only on this device';
+  document.getElementById('settings-copy-btn').style.display = familyCode ? 'block' : 'none';
+  document.getElementById('who-input').value = who;
+
+  const start = new Date(state.cephalexin.startAt);
+  const tzOffset = start.getTimezoneOffset() * 60000;
+  document.getElementById('set-ceph-start').value = new Date(start - tzOffset).toISOString().slice(0, 16);
+  document.getElementById('set-ceph-days').value = state.cephalexin.days;
+  document.getElementById('set-ceph-interval').value = state.cephalexin.intervalHours;
+  document.getElementById('set-ceph-dose').value = state.cephalexin.doseMl;
+
+  document.getElementById('set-ibu-interval').value = state.painSettings.ibuprofenIntervalHours;
+  document.getElementById('set-tyl-interval').value = state.painSettings.tylenolIntervalHours;
+}
+
+function renderAll() {
+  renderToday();
+  renderCephalexin();
+  renderPainRelief();
+  renderSettings();
+}
+
+function render() { renderAll(); }
+
+// =================== PWA ===================
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!localStorage.getItem('install-dismissed'))
+    document.getElementById('install-banner').classList.add('show');
+});
+
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-banner').classList.remove('show');
+});
+
+function dismissInstall() {
+  localStorage.setItem('install-dismissed', '1');
+  document.getElementById('install-banner').classList.remove('show');
+}
+
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) &&
+    !window.navigator.standalone &&
+    !localStorage.getItem('ios-hint-dismissed')) {
+  document.getElementById('ios-hint').classList.add('show');
+}
+
+function dismissIos() {
+  localStorage.setItem('ios-hint-dismissed', '1');
+  document.getElementById('ios-hint').classList.remove('show');
+}
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+// =================== INIT ===================
+document.getElementById('date-label').textContent =
+  new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+document.getElementById('ceph-time').value = nowHHMM();
+document.getElementById('ibu-time').value = nowHHMM();
+document.getElementById('tyl-time').value = nowHHMM();
+
+function boot() {
+  renderAll();
+  setSyncStatus(familyCode ? 'ok' : 'off', familyCode ? 'Syncing…' : 'Not synced — local only');
+  if (familyCode) syncNow(true);
+  startSyncLoop();
+  setInterval(renderAll, 60000);
+}
+
+loadLocal();
+if (localStorage.getItem('tf-onboarded') === '1') {
+  document.getElementById('onboarding').classList.add('hide');
+  boot();
+}
+// else: onboarding overlay stays visible (shown by default in HTML)
+</script>
+</body>
+</html>
