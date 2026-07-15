@@ -15,7 +15,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   // Never cache the sync API - always go to network
-  if (e.request.url.includes('kvdb.io')) return;
+  if (e.request.url.includes('npoint.io')) return;
 
   // Network-first for HTML so updates are picked up immediately
   if (e.request.mode === 'navigate') {
