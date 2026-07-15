@@ -435,6 +435,13 @@
   <div class="ob-panel" id="ob-step-create" style="display:none">
     <label class="field-label">Your name (shown next to doses you log)</label>
     <input type="text" id="ob-create-name" placeholder="Mom / Dad / ..." autocomplete="off" />
+    <label class="field-label">Firebase Database URL <button type="button" class="ob-link" style="margin:0;display:inline;padding:0" onclick="toggleFirebaseHelp()">(how do I get this?)</button></label>
+    <input type="text" id="ob-create-dburl" placeholder="https://your-project-default-rtdb.firebaseio.com" autocomplete="off" />
+    <div id="firebase-help" class="ob-sub" style="display:none; text-align:left">
+      1. Go to <strong>console.firebase.google.com</strong> → Add project (any name, skip Analytics)<br>
+      2. Left sidebar → Build → <strong>Realtime Database</strong> → Create Database → pick a region → <strong>Start in test mode</strong><br>
+      3. Copy the URL shown at the top of the data view and paste it here
+    </div>
     <button class="add-btn gold" onclick="createTracker()">Create Tracker</button>
     <button class="ob-back" onclick="obShow('choice')">← Back</button>
     <div class="ob-error" id="ob-create-error"></div>
@@ -443,7 +450,9 @@
   <div class="ob-panel" id="ob-step-join" style="display:none">
     <label class="field-label">Your name (shown next to doses you log)</label>
     <input type="text" id="ob-join-name" placeholder="Mom / Dad / ..." autocomplete="off" />
-    <label class="field-label">Code from your partner</label>
+    <label class="field-label">Firebase Database URL (from your partner)</label>
+    <input type="text" id="ob-join-dburl" placeholder="https://your-project-default-rtdb.firebaseio.com" autocomplete="off" />
+    <label class="field-label">Code (from your partner)</label>
     <input type="text" id="ob-join-code" placeholder="Paste code here" autocomplete="off" />
     <button class="add-btn gold" onclick="joinTracker()">Join Tracker</button>
     <button class="ob-back" onclick="obShow('choice')">← Back</button>
@@ -458,8 +467,8 @@
   </div>
 
   <div class="ob-panel" id="ob-step-code" style="display:none">
-    <div style="text-align:center; font-size:0.85rem; color:var(--muted)">Share this code with your partner so their app syncs with yours:</div>
-    <div class="code-box"><div class="code-text" id="ob-code-display"></div><button class="copy-btn" onclick="copyCode()">Copy</button></div>
+    <div style="text-align:center; font-size:0.85rem; color:var(--muted)">Send your partner both of these so their app syncs with yours:</div>
+    <div class="code-box"><div class="code-text" id="ob-code-display" style="font-size:0.95rem"></div><button class="copy-btn" onclick="copyCode()">Copy Both</button></div>
     <button class="add-btn gold" onclick="finishOnboarding()">Got it, let's go!</button>
   </div>
 </div>
@@ -561,9 +570,9 @@
   <section id="tab-settings" class="tab-content">
 
     <div>
-      <div class="section-title">Shared Family Code</div>
+      <div class="section-title">Shared Sync Info</div>
       <div class="code-box" style="margin-top:8px">
-        <div class="code-text" id="settings-code-display" style="font-size:0.95rem">—</div>
+        <div class="code-text" id="settings-code-display" style="font-size:0.85rem">—</div>
         <button class="copy-btn" id="settings-copy-btn" onclick="copyCode()">Copy</button>
       </div>
     </div>
@@ -660,7 +669,6 @@
 
 <script>
 // =================== CONSTANTS ===================
-const SYNC_BASE = 'https://api.npoint.io';
 const SYNC_INTERVAL_MS = 20000;
 const FETCH_TIMEOUT_MS = 8000;
 const HOUR = 3600 * 1000;
@@ -668,6 +676,7 @@ const DAY = 24 * HOUR;
 
 let state = null;
 let familyCode = null;
+let dbUrl = null;
 let who = '';
 let syncTimer = null;
 let pushDebounce = null;
@@ -728,6 +737,26 @@ function describeFetchError(e) {
   return (e && e.message) || 'unknown error';
 }
 
+function genCode() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let c = '';
+  for (let i = 0; i < 10; i++) c += chars[Math.floor(Math.random() * chars.length)];
+  return c;
+}
+
+function normalizeDbUrl(url) {
+  return (url || '').trim().replace(/\/+$/, '');
+}
+
+function syncUrl(base, code) {
+  return `${normalizeDbUrl(base)}/toothfairy/${code}.json`;
+}
+
+function toggleFirebaseHelp() {
+  const el = document.getElementById('firebase-help');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
 // =================== DEFAULT STATE ===================
 function defaultState() {
   const start = new Date();
@@ -756,6 +785,7 @@ function defaultState() {
 // =================== PERSISTENCE ===================
 function loadLocal() {
   familyCode = localStorage.getItem('tf-family-code') || null;
+  dbUrl = localStorage.getItem('tf-db-url') || null;
   who = localStorage.getItem('tf-who') || '';
   const raw = localStorage.getItem('tf-state');
   state = raw ? JSON.parse(raw) : defaultState();
@@ -796,21 +826,20 @@ function mergeState(local, remote) {
 }
 
 async function pullRemote() {
-  if (!familyCode) { setSyncStatus('off'); return; }
-  const res = await fetchWithTimeout(`${SYNC_BASE}/${familyCode}`, { cache: 'no-store' });
-  if (res.status === 404) return;
+  if (!familyCode || !dbUrl) { setSyncStatus('off'); return; }
+  const res = await fetchWithTimeout(syncUrl(dbUrl, familyCode), { cache: 'no-store' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const text = await res.text();
-  if (!text) return;
+  if (!text || text === 'null') return;
   const remote = JSON.parse(text);
   state = mergeState(state, remote);
   saveLocal();
 }
 
 async function pushRemote() {
-  if (!familyCode) return;
-  const res = await fetchWithTimeout(`${SYNC_BASE}/${familyCode}`, {
-    method: 'POST',
+  if (!familyCode || !dbUrl) return;
+  const res = await fetchWithTimeout(syncUrl(dbUrl, familyCode), {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(state)
   });
@@ -818,7 +847,7 @@ async function pushRemote() {
 }
 
 async function syncNow(quiet) {
-  if (!familyCode) { setSyncStatus('off'); return; }
+  if (!familyCode || !dbUrl) { setSyncStatus('off'); return; }
   try {
     await pullRemote();
     await pushRemote();
@@ -840,7 +869,7 @@ function schedulePush() {
 
 function startSyncLoop() {
   clearInterval(syncTimer);
-  if (!familyCode) return;
+  if (!familyCode || !dbUrl) return;
   syncTimer = setInterval(() => syncNow(true), SYNC_INTERVAL_MS);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') syncNow(true);
@@ -856,63 +885,63 @@ function obShow(step) {
 
 async function createTracker() {
   const nameEl = document.getElementById('ob-create-name');
+  const dbUrlEl = document.getElementById('ob-create-dburl');
   const errEl = document.getElementById('ob-create-error');
   errEl.textContent = '';
   const name = nameEl.value.trim() || 'Parent';
+  const url = normalizeDbUrl(dbUrlEl.value);
+  if (!url) { errEl.textContent = 'Paste your Firebase Database URL first (tap "how do I get this?" above for steps).'; return; }
+  const code = genCode();
   const initial = defaultState();
-  let code;
   try {
-    const res = await fetchWithTimeout(SYNC_BASE, {
-      method: 'POST',
+    const res = await fetchWithTimeout(syncUrl(url, code), {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(initial)
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    let apiUrl = '';
-    try {
-      const data = JSON.parse(text);
-      apiUrl = data.api || data.url || (typeof data === 'string' ? data : '');
-    } catch (parseErr) {
-      apiUrl = text.trim();
-    }
-    code = (apiUrl || '').split('/').filter(Boolean).pop();
-    if (!code) throw new Error('unexpected response from sync server');
   } catch (e) {
-    errEl.textContent = "Couldn't reach the sync server (" + describeFetchError(e) + "). Check your connection and try again, or use 'no sync' instead.";
+    errEl.textContent = "Couldn't reach that database (" + describeFetchError(e) + "). Double check the URL and that the Realtime Database is in test mode, or use 'no sync' instead.";
     return;
   }
   who = name;
   familyCode = code;
+  dbUrl = url;
   state = initial;
   localStorage.setItem('tf-who', who);
   localStorage.setItem('tf-family-code', familyCode);
+  localStorage.setItem('tf-db-url', dbUrl);
   saveLocal();
-  document.getElementById('ob-code-display').textContent = code;
+  document.getElementById('ob-code-display').innerHTML = 'Database URL:<br>' + escapeHtml(dbUrl) + '<br><br>Code:<br>' + escapeHtml(code);
   obShow('code');
 }
 
 async function joinTracker() {
   const nameEl = document.getElementById('ob-join-name');
+  const dbUrlEl = document.getElementById('ob-join-dburl');
   const codeEl = document.getElementById('ob-join-code');
   const errEl = document.getElementById('ob-join-error');
   errEl.textContent = '';
+  const url = normalizeDbUrl(dbUrlEl.value);
   const code = codeEl.value.trim().replace(/\s+/g, '');
+  if (!url) { errEl.textContent = 'Enter the database URL your partner sent you.'; return; }
   if (!code) { errEl.textContent = 'Enter the code your partner sent you.'; return; }
   try {
-    const res = await fetchWithTimeout(`${SYNC_BASE}/${code}`, { cache: 'no-store' });
-    if (res.status === 404) { errEl.textContent = "That code wasn't found — double-check it with your partner."; return; }
+    const res = await fetchWithTimeout(syncUrl(url, code), { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
-    state = text ? JSON.parse(text) : defaultState();
+    if (!text || text === 'null') { errEl.textContent = "That code wasn't found — double-check it with your partner."; return; }
+    state = JSON.parse(text);
   } catch (e) {
-    errEl.textContent = "Couldn't reach the sync server (" + describeFetchError(e) + "). Check your connection and try again.";
+    errEl.textContent = "Couldn't reach that database (" + describeFetchError(e) + "). Check the URL and your connection and try again.";
     return;
   }
   who = nameEl.value.trim() || 'Parent';
   familyCode = code;
+  dbUrl = url;
   localStorage.setItem('tf-who', who);
   localStorage.setItem('tf-family-code', familyCode);
+  localStorage.setItem('tf-db-url', dbUrl);
   saveLocal();
   finishOnboarding();
 }
@@ -920,16 +949,19 @@ async function joinTracker() {
 function startLocalOnly() {
   who = document.getElementById('ob-local-name').value.trim() || 'Parent';
   familyCode = null;
+  dbUrl = null;
   state = defaultState();
   localStorage.setItem('tf-who', who);
   localStorage.removeItem('tf-family-code');
+  localStorage.removeItem('tf-db-url');
   saveLocal();
   finishOnboarding();
 }
 
 function copyCode() {
-  if (!familyCode) return;
-  navigator.clipboard?.writeText(familyCode).then(() => showToast('Code copied!'));
+  if (!familyCode || !dbUrl) return;
+  const text = 'Database URL: ' + dbUrl + '\nCode: ' + familyCode;
+  navigator.clipboard?.writeText(text).then(() => showToast('Copied! Paste it in a text to your partner.'));
 }
 
 function finishOnboarding() {
@@ -941,6 +973,7 @@ function finishOnboarding() {
 function leaveTracker() {
   if (!confirm("Leave this tracker code? You'll set up or join a tracker again.")) return;
   localStorage.removeItem('tf-family-code');
+  localStorage.removeItem('tf-db-url');
   localStorage.removeItem('tf-who');
   localStorage.removeItem('tf-state');
   location.reload();
@@ -1186,8 +1219,13 @@ function renderPainRelief() {
 }
 
 function renderSettings() {
-  document.getElementById('settings-code-display').textContent = familyCode || 'No code — local only on this device';
-  document.getElementById('settings-copy-btn').style.display = familyCode ? 'block' : 'none';
+  const codeDisplay = document.getElementById('settings-code-display');
+  if (familyCode && dbUrl) {
+    codeDisplay.innerHTML = 'Database: ' + escapeHtml(dbUrl) + '<br>Code: ' + escapeHtml(familyCode);
+  } else {
+    codeDisplay.textContent = 'No code — local only on this device';
+  }
+  document.getElementById('settings-copy-btn').style.display = (familyCode && dbUrl) ? 'block' : 'none';
   document.getElementById('who-input').value = who;
 
   const start = new Date(state.cephalexin.startAt);
