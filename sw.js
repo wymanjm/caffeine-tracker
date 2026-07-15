@@ -1,4 +1,4 @@
-const CACHE = 'caffeine-v1';
+const CACHE = 'tooth-fairy-v1';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -14,6 +14,9 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Never cache the sync API - always go to network
+  if (e.request.url.includes('kvdb.io')) return;
+
   // Network-first for HTML so updates are picked up immediately
   if (e.request.mode === 'navigate') {
     e.respondWith(
