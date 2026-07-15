@@ -660,8 +660,9 @@
 
 <script>
 // =================== CONSTANTS ===================
-const KVDB_BASE = 'https://kvdb.io';
+const SYNC_BASE = 'https://api.npoint.io';
 const SYNC_INTERVAL_MS = 20000;
+const FETCH_TIMEOUT_MS = 8000;
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
 
@@ -716,11 +717,15 @@ function showToast(msg) {
   t._timer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-function genCode() {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  let c = '';
-  for (let i = 0; i < 10; i++) c += chars[Math.floor(Math.random() * chars.length)];
-  return c;
+function fetchWithTimeout(url, opts) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  return fetch(url, { ...(opts || {}), signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
+function describeFetchError(e) {
+  if (e && e.name === 'AbortError') return 'timed out';
+  return (e && e.message) || 'unknown error';
 }
 
 // =================== DEFAULT STATE ===================
@@ -792,9 +797,9 @@ function mergeState(local, remote) {
 
 async function pullRemote() {
   if (!familyCode) { setSyncStatus('off'); return; }
-  const res = await fetch(`${KVDB_BASE}/${familyCode}/state`, { cache: 'no-store' });
+  const res = await fetchWithTimeout(`${SYNC_BASE}/${familyCode}`, { cache: 'no-store' });
   if (res.status === 404) return;
-  if (!res.ok) throw new Error('pull failed: ' + res.status);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
   const text = await res.text();
   if (!text) return;
   const remote = JSON.parse(text);
@@ -804,11 +809,12 @@ async function pullRemote() {
 
 async function pushRemote() {
   if (!familyCode) return;
-  const res = await fetch(`${KVDB_BASE}/${familyCode}/state`, {
+  const res = await fetchWithTimeout(`${SYNC_BASE}/${familyCode}`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(state)
   });
-  if (!res.ok) throw new Error('push failed: ' + res.status);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
 }
 
 async function syncNow(quiet) {
@@ -820,8 +826,9 @@ async function syncNow(quiet) {
     render();
     setSyncStatus('ok', 'Synced at ' + nowHHMM());
   } catch (e) {
-    setSyncStatus('fail');
-    if (!quiet) showToast('⚠️ Could not sync — check your connection');
+    const detail = describeFetchError(e);
+    setSyncStatus('fail', 'Sync failed (' + detail + ') — will retry');
+    if (!quiet) showToast('⚠️ Could not sync: ' + detail);
   }
 }
 
@@ -852,13 +859,27 @@ async function createTracker() {
   const errEl = document.getElementById('ob-create-error');
   errEl.textContent = '';
   const name = nameEl.value.trim() || 'Parent';
-  const code = genCode();
   const initial = defaultState();
+  let code;
   try {
-    const res = await fetch(`${KVDB_BASE}/${code}/state`, { method: 'POST', body: JSON.stringify(initial) });
-    if (!res.ok) throw new Error('create failed');
+    const res = await fetchWithTimeout(SYNC_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(initial)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    let apiUrl = '';
+    try {
+      const data = JSON.parse(text);
+      apiUrl = data.api || data.url || (typeof data === 'string' ? data : '');
+    } catch (parseErr) {
+      apiUrl = text.trim();
+    }
+    code = (apiUrl || '').split('/').filter(Boolean).pop();
+    if (!code) throw new Error('unexpected response from sync server');
   } catch (e) {
-    errEl.textContent = "Couldn't reach the sync server. Check your connection and try again, or use 'no sync' instead.";
+    errEl.textContent = "Couldn't reach the sync server (" + describeFetchError(e) + "). Check your connection and try again, or use 'no sync' instead.";
     return;
   }
   who = name;
@@ -876,16 +897,16 @@ async function joinTracker() {
   const codeEl = document.getElementById('ob-join-code');
   const errEl = document.getElementById('ob-join-error');
   errEl.textContent = '';
-  const code = codeEl.value.trim().toUpperCase().replace(/\s+/g, '');
+  const code = codeEl.value.trim().replace(/\s+/g, '');
   if (!code) { errEl.textContent = 'Enter the code your partner sent you.'; return; }
   try {
-    const res = await fetch(`${KVDB_BASE}/${code}/state`, { cache: 'no-store' });
+    const res = await fetchWithTimeout(`${SYNC_BASE}/${code}`, { cache: 'no-store' });
     if (res.status === 404) { errEl.textContent = "That code wasn't found — double-check it with your partner."; return; }
-    if (!res.ok) throw new Error('join failed');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     state = text ? JSON.parse(text) : defaultState();
   } catch (e) {
-    errEl.textContent = "Couldn't reach the sync server. Check your connection and try again.";
+    errEl.textContent = "Couldn't reach the sync server (" + describeFetchError(e) + "). Check your connection and try again.";
     return;
   }
   who = nameEl.value.trim() || 'Parent';
