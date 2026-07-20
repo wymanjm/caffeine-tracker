@@ -1,11 +1,12 @@
 {
-  "name": "Life Points",
-  "short_name": "Life Pts",
-  "description": "Track caffeine, meditation, and workouts daily",
-  "start_url": "/",
+  "name": "Tooth Fairy Med Tracker",
+  "short_name": "Tooth Fairy",
+  "description": "Track antibiotic doses and cycle pain relief after tooth extraction",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#e94560",
+  "background_color": "#2d1b57",
+  "theme_color": "#6c4fd6",
   "orientation": "portrait",
   "icons": [
     {

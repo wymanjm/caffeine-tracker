@@ -1,5 +1,5 @@
-const CACHE = 'caffeine-v1';
-const ASSETS = ['/', '/index.html', '/manifest.json'];
+const CACHE = 'tooth-fairy-v2';
+const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -14,6 +14,9 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Never cache cross-origin requests (the sync database) - always go to network
+  if (new URL(e.request.url).origin !== self.location.origin) return;
+
   // Network-first for HTML so updates are picked up immediately
   if (e.request.mode === 'navigate') {
     e.respondWith(
