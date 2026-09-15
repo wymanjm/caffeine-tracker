@@ -1,4 +1,4 @@
-const CACHE = 'tooth-fairy-v2';
+const CACHE = 'life-points-v1';
 const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -14,7 +14,6 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Never cache cross-origin requests (the sync database) - always go to network
   if (new URL(e.request.url).origin !== self.location.origin) return;
 
   // Network-first for HTML so updates are picked up immediately
