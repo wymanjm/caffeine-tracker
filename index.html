@@ -131,7 +131,7 @@
     /* Form elements */
     .form-row { display: flex; gap: 8px; }
 
-    input[type=text], input[type=number], input[type=time] {
+    input[type=text], input[type=number], input[type=time], input[type=date] {
       flex: 1;
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.1);
@@ -144,7 +144,13 @@
     }
     input::placeholder { color: var(--muted); }
     input:focus { border-color: var(--accent); }
-    input[type=time] { flex: 0 0 auto; width: auto; color-scheme: dark; }
+    input[type=time], input[type=date] { flex: 0 0 auto; width: auto; color-scheme: dark; }
+
+    .date-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border-radius: var(--radius); padding: 12px 14px;
+    }
+    .date-row label { font-size: 0.82rem; color: var(--muted); flex: 1; }
 
     .add-btn {
       background: var(--accent);
@@ -303,9 +309,12 @@
       background: rgba(255,255,255,0.07);
       border: 2px solid transparent;
       transition: background 0.2s;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
     .dot.done { background: var(--safe); }
     .dot.today-ring { border-color: var(--accent); }
+    .dot.selected-ring { border-color: var(--accent2); }
     .dot-label { font-size: 0.57rem; color: var(--muted); text-align: center; }
     .dot-label.today { color: var(--accent); font-weight: 700; }
 
@@ -475,6 +484,11 @@
   <!-- ===== MEDITATION TAB ===== -->
   <section id="tab-meditate" class="tab-content">
 
+    <div class="date-row">
+      <label for="med-date-input">Log for date</label>
+      <input type="date" id="med-date-input" onchange="onMedDateChange()" />
+    </div>
+
     <div class="meditate-hero">
       <div class="med-icon" id="med-icon">🧘</div>
       <div class="med-status" id="med-status">Ready to meditate?</div>
@@ -491,13 +505,18 @@
     </div>
 
     <div>
-      <div class="section-title">Last 7 Days</div>
+      <div class="section-title">Last 7 Days — tap a day to toggle</div>
       <div class="dot-row" id="med-dots"></div>
     </div>
   </section>
 
   <!-- ===== WORKOUT TAB ===== -->
   <section id="tab-workout" class="tab-content">
+
+    <div class="date-row">
+      <label for="workout-date-input">Log for date</label>
+      <input type="date" id="workout-date-input" onchange="onWorkoutDateChange()" />
+    </div>
 
     <div>
       <div class="section-title">Select Type</div>
@@ -526,7 +545,7 @@
     </div>
 
     <div>
-      <div class="section-title">Today's Workouts</div>
+      <div class="section-title" id="workout-log-title">Today's Workouts</div>
       <div class="log-list" id="workout-log">
         <div class="empty-log">No workouts logged today</div>
       </div>
@@ -582,6 +601,10 @@ function nowHHMM() {
 
 function todayISO() { return new Date().toLocaleDateString('en-CA'); }
 function dateISO(d)  { return d.toLocaleDateString('en-CA'); }
+function parseISODate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 function parseHour(t) { return t ? parseInt(t.split(':')[0], 10) : new Date().getHours(); }
 function isLate(h)    { return h >= CUTOFF_HOUR; }
 
@@ -599,8 +622,16 @@ function showTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.getElementById('tabBtn-' + name).classList.add('active');
-  if (name === 'meditate') renderMeditation();
-  if (name === 'workout')  renderWorkout();
+  if (name === 'meditate') {
+    medSelectedDate = todayISO();
+    document.getElementById('med-date-input').value = medSelectedDate;
+    renderMeditation();
+  }
+  if (name === 'workout') {
+    workoutSelectedDate = todayISO();
+    document.getElementById('workout-date-input').value = workoutSelectedDate;
+    renderWorkout();
+  }
 }
 
 // =================== CAFFEINE ===================
@@ -748,6 +779,8 @@ function renderCaffeine() {
 }
 
 // =================== MEDITATION ===================
+let medSelectedDate = todayISO();
+
 function medKey(d) { return 'lp-meditate-' + (d ? dateISO(d) : todayISO()); }
 
 function isMeditatedOn(d) {
@@ -771,29 +804,46 @@ function getMeditationStreak() {
 }
 
 function toggleMeditation() {
-  if (isMeditatedToday()) {
-    localStorage.removeItem(medKey(null));
+  const d = parseISODate(medSelectedDate);
+  if (isMeditatedOn(d)) {
+    localStorage.removeItem(medKey(d));
   } else {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    localStorage.setItem(medKey(null), JSON.stringify({ logged: true, time: timeStr }));
+    localStorage.setItem(medKey(d), JSON.stringify({ logged: true, time: timeStr }));
   }
   renderMeditation();
 }
 
+function toggleMeditationForDate(iso) {
+  medSelectedDate = iso;
+  document.getElementById('med-date-input').value = iso;
+  toggleMeditation();
+}
+
+function onMedDateChange() {
+  medSelectedDate = document.getElementById('med-date-input').value || todayISO();
+  renderMeditation();
+}
+
 function renderMeditation() {
-  const done    = isMeditatedToday();
-  const raw     = localStorage.getItem(medKey(null));
+  const selDate = parseISODate(medSelectedDate);
+  const isToday = medSelectedDate === todayISO();
+  const done    = isMeditatedOn(selDate);
+  const raw     = localStorage.getItem(medKey(selDate));
   const timeStr = done && raw ? JSON.parse(raw).time : null;
   const streak  = getMeditationStreak();
+  const dateLabel = selDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
   document.getElementById('med-icon').textContent   = done ? '✅' : '🧘';
-  document.getElementById('med-status').textContent = done ? 'Meditation complete!' : 'Ready to meditate?';
+  document.getElementById('med-status').textContent = done
+    ? (isToday ? 'Meditation complete!' : 'Marked as meditated — ' + dateLabel)
+    : (isToday ? 'Ready to meditate?' : 'Not yet logged for ' + dateLabel);
   document.getElementById('med-sub').textContent    = done
     ? (timeStr ? 'Logged at ' + timeStr : 'Well done!')
-    : "Tap below when you're done";
+    : (isToday ? "Tap below when you're done" : 'Tap below to backdate this day');
 
   const btn = document.getElementById('med-btn');
-  btn.textContent = done ? 'Undo' : 'Mark as Done';
+  btn.textContent = done ? 'Undo' : (isToday ? 'Mark as Done' : 'Mark ' + dateLabel + ' as Done');
   btn.className   = 'med-log-btn' + (done ? ' done' : '');
 
   document.getElementById('streak-num').textContent = streak;
@@ -802,17 +852,19 @@ function renderMeditation() {
     streak === 1 ? 'Great start! Keep it going tomorrow.' :
     streak + ' days in a row — keep it up!';
 
-  // 7-day dots
+  // 7-day dots — tap any dot to toggle meditation for that day
   const today = new Date();
   const dots = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
     d.setDate(d.getDate() - (6 - i));
-    const logged  = isMeditatedOn(i === 6 ? null : d);
-    const isToday = i === 6;
-    const label   = isToday ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' });
+    const iso = dateISO(d);
+    const logged     = isMeditatedOn(d);
+    const isTodayDot = iso === todayISO();
+    const isSelected = iso === medSelectedDate;
+    const label = isTodayDot ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' });
     return `<div class="dot-col">
-      <div class="dot ${logged ? 'done' : ''} ${isToday ? 'today-ring' : ''}"></div>
-      <div class="dot-label ${isToday ? 'today' : ''}">${label}</div>
+      <div class="dot ${logged ? 'done' : ''} ${isTodayDot ? 'today-ring' : ''} ${isSelected ? 'selected-ring' : ''}" onclick="toggleMeditationForDate('${iso}')"></div>
+      <div class="dot-label ${isTodayDot ? 'today' : ''}">${label}</div>
     </div>`;
   }).join('');
   document.getElementById('med-dots').innerHTML = dots;
@@ -826,6 +878,7 @@ const WORKOUT_TYPES = {
 };
 
 let selectedType = 'run';
+let workoutSelectedDate = todayISO();
 
 function selectWorkoutType(type) {
   selectedType = type;
@@ -835,17 +888,23 @@ function selectWorkoutType(type) {
 
 function workoutKey(d) { return 'lp-workouts-' + (d ? dateISO(d) : todayISO()); }
 
+function onWorkoutDateChange() {
+  workoutSelectedDate = document.getElementById('workout-date-input').value || todayISO();
+  renderWorkout();
+}
+
 function addWorkout() {
   const duration = parseInt(document.getElementById('workout-duration').value, 10) || null;
   const timeStr  = document.getElementById('workout-time').value || nowHHMM();
-  const d = new Date();
+  const selDate  = parseISODate(workoutSelectedDate);
+  const d = new Date(selDate);
   d.setHours(parseInt(timeStr.split(':')[0], 10), parseInt(timeStr.split(':')[1], 10), 0);
   const displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const raw      = localStorage.getItem(workoutKey(null));
+  const raw      = localStorage.getItem(workoutKey(selDate));
   const workouts = raw ? JSON.parse(raw) : [];
   workouts.push({ id: Date.now(), type: selectedType, duration, time: displayTime });
-  localStorage.setItem(workoutKey(null), JSON.stringify(workouts));
+  localStorage.setItem(workoutKey(selDate), JSON.stringify(workouts));
 
   document.getElementById('workout-duration').value = '';
   document.getElementById('workout-time').value     = nowHHMM();
@@ -853,9 +912,10 @@ function addWorkout() {
 }
 
 function deleteWorkout(id) {
-  const raw = localStorage.getItem(workoutKey(null));
+  const selDate = parseISODate(workoutSelectedDate);
+  const raw = localStorage.getItem(workoutKey(selDate));
   const workouts = (raw ? JSON.parse(raw) : []).filter(w => w.id !== id);
-  localStorage.setItem(workoutKey(null), JSON.stringify(workouts));
+  localStorage.setItem(workoutKey(selDate), JSON.stringify(workouts));
   renderWorkout();
 }
 
@@ -872,12 +932,18 @@ function getWeeklyCounts() {
 }
 
 function renderWorkout() {
-  const raw      = localStorage.getItem(workoutKey(null));
+  const selDate  = parseISODate(workoutSelectedDate);
+  const isToday  = workoutSelectedDate === todayISO();
+  const raw      = localStorage.getItem(workoutKey(selDate));
   const workouts = raw ? JSON.parse(raw) : [];
   const log      = document.getElementById('workout-log');
 
+  document.getElementById('workout-log-title').textContent = isToday
+    ? "Today's Workouts"
+    : 'Workouts — ' + selDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
   if (!workouts.length) {
-    log.innerHTML = '<div class="empty-log">No workouts logged today</div>';
+    log.innerHTML = '<div class="empty-log">No workouts logged ' + (isToday ? 'today' : 'for this day') + '</div>';
   } else {
     log.innerHTML = [...workouts].reverse().map(w => {
       const cfg = WORKOUT_TYPES[w.type] || WORKOUT_TYPES.run;
@@ -941,6 +1007,11 @@ document.getElementById('date-label').textContent =
 
 document.getElementById('custom-time').value  = nowHHMM();
 document.getElementById('workout-time').value = nowHHMM();
+
+document.getElementById('med-date-input').value = medSelectedDate;
+document.getElementById('med-date-input').max   = todayISO();
+document.getElementById('workout-date-input').value = workoutSelectedDate;
+document.getElementById('workout-date-input').max   = todayISO();
 
 document.getElementById('custom-mg').addEventListener('keydown', e => {
   if (e.key === 'Enter') addCustom();
